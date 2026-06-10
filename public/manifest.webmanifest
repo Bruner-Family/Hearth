@@ -1,0 +1,17 @@
+{
+  "name": "Hearth — Home Asset Tracker",
+  "short_name": "Hearth",
+  "description": "Home asset & maintenance tracker for the household",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF7F2",
+  "theme_color": "#C2410C",
+  "icons": [
+    {
+      "src": "/icons/icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

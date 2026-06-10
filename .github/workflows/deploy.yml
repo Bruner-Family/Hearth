@@ -1,0 +1,129 @@
+# ADR-001 §2.2 — CI: typecheck, lint, static export, sync to GCS bucket,
+# purge Cloudflare cache. §2.4 — migrations apply via Supabase CLI.
+#
+# Required repository secrets:
+#   EXPO_PUBLIC_SUPABASE_URL        Supabase project URL (public, but env-specific)
+#   EXPO_PUBLIC_SUPABASE_ANON_KEY   Supabase publishable key
+#   GCP_WORKLOAD_IDENTITY_PROVIDER  e.g. projects/N/locations/global/workloadIdentityPools/...
+#   GCP_SERVICE_ACCOUNT             deployer SA email
+#   GCS_BUCKET                      bucket name (no gs:// prefix)
+#   CLOUDFLARE_ZONE_ID              zone for home.bruner.family
+#   CLOUDFLARE_API_TOKEN            token with Zone.Cache Purge
+#   SUPABASE_ACCESS_TOKEN           supabase.com access token
+#   SUPABASE_PROJECT_REF            project ref for `supabase link`
+#   SUPABASE_DB_PASSWORD            database password for `supabase db push`
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  id-token: write # GCP Workload Identity Federation
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint -- --max-warnings 0
+
+      - name: Static export
+        run: npm run build
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+          retention-days: 7
+
+  rls-tests:
+    # RLS is the only enforcement layer; a policy bug is a data-exposure bug
+    # (ADR-001 §3), so policies are tested with pgTAP on every change.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase and run pgTAP policy tests
+        run: |
+          supabase db start
+          supabase test db
+
+  migrate:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [build, rls-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Apply migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+          supabase db push
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [migrate]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Sync to bucket
+        # Content-hashed bundle assets are immutable; HTML entry points and
+        # the manifest stay short-TTL so deploys go live on the next cache
+        # miss (§2.2). gsutil -x excludes from deletion too, so pass 1's -d
+        # never removes the entry points uploaded by pass 2.
+        run: |
+          gsutil -m -h "Cache-Control:public, max-age=31536000, immutable" \
+            rsync -r -d -x '.*\.html$|manifest\.webmanifest$' \
+            dist "gs://${{ secrets.GCS_BUCKET }}"
+          gsutil -m -h "Cache-Control:public, max-age=60" \
+            rsync -r -x '^(?!.*(\.html|manifest\.webmanifest)$).*' \
+            dist "gs://${{ secrets.GCS_BUCKET }}"
+
+      - name: Purge Cloudflare cache
+        run: |
+          curl -fsS -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}'

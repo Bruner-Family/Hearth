@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Warm "hearth" light theme */
+    --c-bg: 250 247 242;
+    --c-card: 255 255 255;
+    --c-edge: 231 225 216;
+    --c-ink: 28 25 23;
+    --c-ink-dim: 120 113 108;
+    --c-accent: 194 65 12;
+    --c-on-accent: 255 251 247;
+    --c-ok: 22 163 74;
+    --c-warn: 217 119 6;
+    --c-danger: 220 38 38;
+  }
+
+  .dark:root {
+    --c-bg: 19 17 16;
+    --c-card: 32 29 27;
+    --c-edge: 54 49 45;
+    --c-ink: 245 240 234;
+    --c-ink-dim: 168 162 158;
+    --c-accent: 251 146 60;
+    --c-on-accent: 33 20 10;
+    --c-ok: 74 222 128;
+    --c-warn: 251 191 36;
+    --c-danger: 248 113 113;
+  }
+}
