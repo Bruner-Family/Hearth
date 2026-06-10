@@ -1,0 +1,12 @@
+# Supabase CLI configuration. Only the bits we need for `supabase db push`
+# and local development; everything else uses CLI defaults.
+project_id = "hearth"
+
+[db]
+major_version = 17
+
+[auth]
+# Auth itself (Pocket-ID as a custom OIDC provider) is configured in the
+# Supabase dashboard — custom OIDC providers are not yet expressible here.
+site_url = "https://home.bruner.family"
+additional_redirect_urls = ["http://localhost:8081"]
