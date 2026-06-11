@@ -5,14 +5,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button, ErrorNote, Loading } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { useDemo } from "@/lib/demo";
 
 export default function SignInScreen() {
   const { session, loading, signIn } = useAuth();
+  const { enabled: demo, enter: enterDemo } = useDemo();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
 
   if (loading) return <Loading />;
-  if (session) return <Redirect href="/" />;
+  if (session || demo) return <Redirect href="/" />;
 
   const handleSignIn = async () => {
     setBusy(true);
@@ -41,9 +43,17 @@ export default function SignInScreen() {
             loading={busy}
             onPress={handleSignIn}
           />
+          <View className="mt-3">
+            <Button
+              title="Explore the demo"
+              variant="secondary"
+              onPress={() => enterDemo()}
+            />
+          </View>
         </View>
         <Text className="mt-6 text-center text-xs text-ink-dim">
-          Access is by household invitation only.
+          Access is by household invitation only — or poke around the demo
+          home with example data.
         </Text>
       </View>
     </SafeAreaView>

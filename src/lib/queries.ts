@@ -9,6 +9,7 @@ import type {
   ItemWithCategory,
   MaintenanceLog,
 } from "@/lib/database.types";
+import { demoDb, useDemo } from "@/lib/demo";
 import { supabase } from "@/lib/supabase";
 
 type ItemInsert = Database["public"]["Tables"]["items"]["Insert"];
@@ -22,10 +23,12 @@ const ITEM_SELECT = "*, category:item_categories(*)";
 // ---------------------------------------------------------------------------
 
 export function useCategories() {
+  const { enabled: demo } = useDemo();
   return useQuery({
     queryKey: ["categories"],
     staleTime: Infinity,
     queryFn: async (): Promise<ItemCategory[]> => {
+      if (demo) return demoDb.categories();
       const { data, error } = await supabase
         .from("item_categories")
         .select("*")
@@ -41,10 +44,12 @@ export function useCategories() {
 // ---------------------------------------------------------------------------
 
 export function useItems(householdId: string | undefined) {
+  const { enabled: demo } = useDemo();
   return useQuery({
     queryKey: ["items", householdId],
     enabled: !!householdId,
     queryFn: async (): Promise<ItemWithCategory[]> => {
+      if (demo) return demoDb.listItems();
       const { data, error } = await supabase
         .from("items")
         .select(ITEM_SELECT)
@@ -57,10 +62,12 @@ export function useItems(householdId: string | undefined) {
 }
 
 export function useItem(id: string | undefined) {
+  const { enabled: demo } = useDemo();
   return useQuery({
     queryKey: ["item", id],
     enabled: !!id,
     queryFn: async (): Promise<ItemWithCategory> => {
+      if (demo) return demoDb.getItem(id!);
       const { data, error } = await supabase
         .from("items")
         .select(ITEM_SELECT)
@@ -81,9 +88,11 @@ function useInvalidateItems() {
 }
 
 export function useCreateItem() {
+  const { enabled: demo } = useDemo();
   const invalidate = useInvalidateItems();
   return useMutation({
     mutationFn: async (values: ItemInsert) => {
+      if (demo) return demoDb.createItem(values);
       const { data, error } = await supabase
         .from("items")
         .insert(values)
@@ -97,9 +106,11 @@ export function useCreateItem() {
 }
 
 export function useUpdateItem() {
+  const { enabled: demo } = useDemo();
   const invalidate = useInvalidateItems();
   return useMutation({
     mutationFn: async ({ id, ...values }: ItemUpdate & { id: string }) => {
+      if (demo) return demoDb.updateItem(id, values);
       const { data, error } = await supabase
         .from("items")
         .update(values)
@@ -114,9 +125,14 @@ export function useUpdateItem() {
 }
 
 export function useDeleteItem() {
+  const { enabled: demo } = useDemo();
   const invalidate = useInvalidateItems();
   return useMutation({
     mutationFn: async (item: { id: string; household_id: string }) => {
+      if (demo) {
+        demoDb.deleteItem(item.id);
+        return item;
+      }
       const { error } = await supabase.from("items").delete().eq("id", item.id);
       if (error) throw error;
       return item;
@@ -130,10 +146,12 @@ export function useDeleteItem() {
 // ---------------------------------------------------------------------------
 
 export function useLogs(itemId: string | undefined) {
+  const { enabled: demo } = useDemo();
   return useQuery({
     queryKey: ["logs", itemId],
     enabled: !!itemId,
     queryFn: async (): Promise<MaintenanceLog[]> => {
+      if (demo) return demoDb.listLogs(itemId!);
       const { data, error } = await supabase
         .from("maintenance_logs")
         .select("*")
@@ -146,9 +164,11 @@ export function useLogs(itemId: string | undefined) {
 }
 
 export function useCreateLog() {
+  const { enabled: demo } = useDemo();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: LogInsert) => {
+      if (demo) return demoDb.createLog(values);
       const { data, error } = await supabase
         .from("maintenance_logs")
         .insert(values)
@@ -163,9 +183,14 @@ export function useCreateLog() {
 }
 
 export function useDeleteLog() {
+  const { enabled: demo } = useDemo();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (log: { id: string; item_id: string }) => {
+      if (demo) {
+        demoDb.deleteLog(log.id);
+        return log;
+      }
       const { error } = await supabase
         .from("maintenance_logs")
         .delete()
@@ -183,10 +208,12 @@ export function useDeleteLog() {
 // ---------------------------------------------------------------------------
 
 export function useAttachments(itemId: string | undefined) {
+  const { enabled: demo } = useDemo();
   return useQuery({
     queryKey: ["attachments", itemId],
     enabled: !!itemId,
     queryFn: async (): Promise<Attachment[]> => {
+      if (demo) return [];
       const { data, error } = await supabase
         .from("attachments")
         .select("*")
@@ -209,9 +236,11 @@ export type UploadAttachmentArgs = {
 };
 
 export function useUploadAttachment() {
+  const { enabled: demo } = useDemo();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (args: UploadAttachmentArgs) => {
+      if (demo) throw new Error("Attachments are disabled in the demo.");
       const path = `${args.householdId}/${args.itemId}/${Date.now()}-${args.fileName}`;
       const { error: storageError } = await supabase.storage
         .from("attachments")
@@ -272,10 +301,12 @@ export function useAttachmentUrl(storagePath: string) {
 // ---------------------------------------------------------------------------
 
 export function useMembers(householdId: string | undefined) {
+  const { enabled: demo } = useDemo();
   return useQuery({
     queryKey: ["members", householdId],
     enabled: !!householdId,
     queryFn: async (): Promise<HouseholdMember[]> => {
+      if (demo) return demoDb.members();
       const { data, error } = await supabase
         .from("household_members")
         .select("*")

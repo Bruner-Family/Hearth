@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { Button, Card, ErrorNote, Field, SectionTitle } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { useDemo } from "@/lib/demo";
 import { formatDate } from "@/lib/format";
 import { useHousehold } from "@/lib/household";
 import {
@@ -19,6 +20,7 @@ import { useTheme, type ThemePreference } from "@/lib/theme";
 
 export default function SettingsScreen() {
   const { session, signOut } = useAuth();
+  const { enabled: demo, exit: exitDemo } = useDemo();
   const { memberships, active, setActiveId } = useHousehold();
 
   return (
@@ -66,13 +68,31 @@ export default function SettingsScreen() {
       </Card>
 
       <SectionTitle>Account</SectionTitle>
-      <Card>
-        <Text className="mb-1 text-sm text-ink-dim">Signed in as</Text>
-        <Text className="mb-4 text-base font-medium text-ink">
-          {session?.user.email ?? "—"}
-        </Text>
-        <Button title="Sign out" variant="secondary" onPress={() => signOut()} />
-      </Card>
+      {demo ? (
+        <Card>
+          <Text className="mb-1 text-sm text-ink-dim">Demo mode</Text>
+          <Text className="mb-4 text-base font-medium text-ink">
+            Example data — changes vanish when you exit
+          </Text>
+          <Button
+            title="Exit demo"
+            variant="secondary"
+            onPress={() => exitDemo()}
+          />
+        </Card>
+      ) : (
+        <Card>
+          <Text className="mb-1 text-sm text-ink-dim">Signed in as</Text>
+          <Text className="mb-4 text-base font-medium text-ink">
+            {session?.user.email ?? "—"}
+          </Text>
+          <Button
+            title="Sign out"
+            variant="secondary"
+            onPress={() => signOut()}
+          />
+        </Card>
+      )}
 
       <Text className="mt-8 text-center text-xs text-ink-dim">
         Hearth — home asset & maintenance tracker
@@ -121,6 +141,7 @@ function AppearanceCard() {
 
 function HouseholdDetails() {
   const { session } = useAuth();
+  const { enabled: demo } = useDemo();
   const { active } = useHousehold();
   const householdId = active!.household.id;
   const isOwner = active!.role === "owner";
@@ -163,7 +184,9 @@ function HouseholdDetails() {
           className="flex-row items-center justify-between border-t border-edge py-2.5"
         >
           <Text className="text-sm text-ink">
-            {m.user_id === session?.user.id ? "You" : `Member ${m.user_id.slice(0, 8)}`}
+            {demo || m.user_id === session?.user.id
+              ? "You"
+              : `Member ${m.user_id.slice(0, 8)}`}
           </Text>
           <Text className="text-xs uppercase text-ink-dim">{m.role}</Text>
         </View>

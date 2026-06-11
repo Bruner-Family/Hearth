@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 
 import { AuthProvider } from "@/lib/auth";
+import { DemoProvider } from "@/lib/demo";
 import { HouseholdProvider } from "@/lib/household";
 import { ThemeProvider, useTheme } from "@/lib/theme";
 
@@ -34,9 +35,11 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <HouseholdProvider>
-            <RootStack />
-          </HouseholdProvider>
+          <DemoProvider>
+            <HouseholdProvider>
+              <RootStack />
+            </HouseholdProvider>
+          </DemoProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
