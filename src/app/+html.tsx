@@ -19,7 +19,9 @@ export default function Root({ children }: PropsWithChildren) {
         />
         {/* PWA: installable to a home screen (ADR-001 §2.6) */}
         <link rel="manifest" href="/manifest.webmanifest" />
-        <meta name="theme-color" content="#C2410C" />
+        {/* Matches --c-bg; ThemeProvider rewrites this when the scheme changes
+            so Safari's status-bar/toolbar areas follow the in-app theme. */}
+        <meta name="theme-color" content="#FAF7F2" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href="/icons/icon-1024.png" />

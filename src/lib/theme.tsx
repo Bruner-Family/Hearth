@@ -7,7 +7,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useColorScheme as useSystemColorScheme } from "react-native";
+import {
+  Platform,
+  useColorScheme as useSystemColorScheme,
+} from "react-native";
 
 const STORAGE_KEY = "hearth.theme";
 
@@ -44,6 +47,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // the system preference ourselves and always set a concrete scheme.
   useEffect(() => {
     nativewindColorScheme.set(scheme);
+  }, [scheme]);
+
+  // Keep the browser chrome (Safari status bar / toolbar tint, form controls,
+  // scrollbars) in sync with the in-app theme, which can differ from the
+  // system preference.
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    document.documentElement.style.colorScheme = scheme;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", palettes[scheme].bg);
   }, [scheme]);
 
   const setPreference = (p: ThemePreference) => {
