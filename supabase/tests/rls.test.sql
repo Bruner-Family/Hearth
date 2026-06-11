@@ -27,6 +27,13 @@ from public.household_members m, public.item_categories c
 where m.user_id = '00000000-0000-0000-0000-000000000001'
   and c.name = 'Roof (asphalt shingle)';
 
+-- Stash Alice's household id while RLS-exempt, so later tests can target it
+-- even when impersonating a user who cannot see her membership row.
+create temporary table alice_household as
+select household_id from public.household_members
+where user_id = '00000000-0000-0000-0000-000000000001';
+grant select on alice_household to authenticated;
+
 -- Helper to impersonate a user the way PostgREST does.
 create or replace function test_as(uid uuid, email text) returns void language plpgsql as $$
 begin
@@ -64,10 +71,9 @@ select is_empty(
 
 select throws_ok(
   $$ insert into public.items (household_id, category_id, name)
-     select h.household_id, c.id, 'Sneaky item'
-     from public.household_members h, public.item_categories c
-     where h.user_id = '00000000-0000-0000-0000-000000000001'
-       and c.name = 'Other' $$,
+     select a.household_id, c.id, 'Sneaky item'
+     from alice_household a, public.item_categories c
+     where c.name = 'Other' $$,
   '42501',
   'new row violates row-level security policy for table "items"',
   'non-member cannot insert items into another household'
