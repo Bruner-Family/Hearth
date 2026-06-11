@@ -10,6 +10,7 @@ import {
 
 import { useAuth } from "@/lib/auth";
 import type { Household, Role } from "@/lib/database.types";
+import { DEMO_HOUSEHOLD, DEMO_ROLE, useDemo } from "@/lib/demo";
 import { supabase } from "@/lib/supabase";
 
 const STORAGE_KEY = "hearth.household";
@@ -28,6 +29,7 @@ const HouseholdContext = createContext<HouseholdState | undefined>(undefined);
 
 export function HouseholdProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
+  const { enabled: demo } = useDemo();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,9 +39,10 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const { data: memberships = [], isLoading } = useQuery({
-    queryKey: ["memberships", session?.user.id],
-    enabled: !!session,
+    queryKey: ["memberships", demo ? "demo" : session?.user.id],
+    enabled: demo || !!session,
     queryFn: async (): Promise<Membership[]> => {
+      if (demo) return [{ household: DEMO_HOUSEHOLD, role: DEMO_ROLE }];
       const { data, error } = await supabase
         .from("household_members")
         .select("role, household:households(*)")
