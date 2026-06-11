@@ -49,15 +49,11 @@ supabase db start
 supabase test db
 ```
 
-## Auth setup (one-time)
+## One-time setup
 
-1. In Pocket-ID, create an OIDC client (authorization code + PKCE) with the
-   Supabase callback `https://<project-ref>.supabase.co/auth/v1/callback` as
-   the redirect URI.
-2. In Supabase: Authentication → Sign In/Providers → Custom Providers → add
-   `pocket-id` with the Pocket-ID issuer URL and client credentials.
-3. The app signs in with `signInWithOAuth({ provider: 'custom:pocket-id' })`;
-   first sign-in auto-creates the user and a default household.
+Supabase project, Pocket-ID OIDC client, GCP workload identity, Cloudflare,
+and GitHub Actions secrets are walked through step by step in
+[docs/SETUP.md](docs/SETUP.md).
 
 ## Deployment
 
