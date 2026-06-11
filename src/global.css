@@ -17,6 +17,12 @@
     --c-danger: 220 38 38;
   }
 
+  /* Paint the document itself so Safari's status-bar/toolbar overscroll
+     areas follow the active theme instead of defaulting to white. */
+  :root {
+    background-color: rgb(var(--c-bg));
+  }
+
   .dark:root {
     --c-bg: 19 17 16;
     --c-card: 32 29 27;
