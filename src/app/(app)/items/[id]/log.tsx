@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Controller, useForm } from "react-hook-form";
 import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 
+import { DateField } from "@/components/DateField";
 import { Button, ErrorNote, Field } from "@/components/ui";
 import { parseDollarsToCents, todayISO } from "@/lib/format";
 import { useCreateLog } from "@/lib/queries";
@@ -71,12 +72,10 @@ export default function NewLogScreen() {
           control={control}
           name="performed_on"
           render={({ field: { onChange, onBlur, value } }) => (
-            <Field
+            <DateField
               label="Date performed"
-              placeholder="YYYY-MM-DD"
-              inputMode="numeric"
               value={value}
-              onChangeText={onChange}
+              onChange={onChange}
               onBlur={onBlur}
               error={errors.performed_on?.message}
             />
