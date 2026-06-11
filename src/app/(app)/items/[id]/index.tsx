@@ -12,7 +12,7 @@ import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { LifespanBar } from "@/components/LifespanBar";
 import { Button, Card, Loading, SectionTitle } from "@/components/ui";
 import type { MaintenanceLog } from "@/lib/database.types";
-import { formatCents, formatDate } from "@/lib/format";
+import { formatCents, formatDate, formatPurchaseDate } from "@/lib/format";
 import { formatYears, lifespanStatus } from "@/lib/lifespan";
 import { useDeleteItem, useDeleteLog, useItem, useLogs } from "@/lib/queries";
 import { usePalette } from "@/lib/theme";
@@ -53,7 +53,10 @@ export default function ItemDetailScreen() {
   const facts: [string, string][] = [
     ["Category", `${item.category.icon} ${item.category.name}`],
     ["Location", item.location ?? "—"],
-    ["Purchased", formatDate(item.purchase_date)],
+    [
+      "Purchased",
+      formatPurchaseDate(item.purchase_date, item.purchase_date_precision),
+    ],
     ["Price", formatCents(item.price_cents)],
     ["Vendor", item.vendor ?? "—"],
     ["Brand", item.brand ?? "—"],

@@ -2,9 +2,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { Pressable, Text, View } from "react-native";
 
+import { DateField } from "@/components/DateField";
 import { Button, ErrorNote, Field, SectionTitle } from "@/components/ui";
 import type { Database, ItemWithCategory } from "@/lib/database.types";
-import { parseDollarsToCents } from "@/lib/format";
+import {
+  combinePurchaseDate,
+  parseDollarsToCents,
+  splitPurchaseDate,
+} from "@/lib/format";
 import { useCategories } from "@/lib/queries";
 import { itemFormSchema, type ItemFormValues } from "@/lib/schemas";
 
@@ -26,6 +31,10 @@ export function ItemForm({
   error?: string;
 }) {
   const { data: categories = [] } = useCategories();
+  const initialPurchase = splitPurchaseDate(
+    initial?.purchase_date,
+    initial?.purchase_date_precision,
+  );
 
   const {
     control,
@@ -37,7 +46,8 @@ export function ItemForm({
       name: initial?.name ?? "",
       category_id: initial?.category_id ?? "",
       location: initial?.location ?? "",
-      purchase_date: initial?.purchase_date ?? "",
+      purchase_month: initialPurchase.month,
+      purchase_day: initialPurchase.day,
       price:
         initial?.price_cents != null
           ? (initial.price_cents / 100).toFixed(2)
@@ -60,7 +70,7 @@ export function ItemForm({
       category_id: values.category_id,
       name: values.name.trim(),
       location: empty(values.location),
-      purchase_date: empty(values.purchase_date),
+      ...combinePurchaseDate(values.purchase_month, values.purchase_day),
       price_cents: values.price ? parseDollarsToCents(values.price) : null,
       vendor: empty(values.vendor),
       brand: empty(values.brand),
@@ -160,21 +170,43 @@ export function ItemForm({
 
       <SectionTitle>Purchase</SectionTitle>
 
-      <Controller
-        control={control}
-        name="purchase_date"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <Field
-            label="Purchase date"
-            placeholder="YYYY-MM-DD"
-            inputMode="numeric"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.purchase_date?.message}
+      <View className="flex-row gap-3">
+        <View className="flex-1">
+          <Controller
+            control={control}
+            name="purchase_month"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <DateField
+                mode="month"
+                label="Purchase month"
+                value={value ?? ""}
+                onChange={onChange}
+                onBlur={onBlur}
+                error={errors.purchase_month?.message}
+              />
+            )}
           />
-        )}
-      />
+        </View>
+        <View className="w-28">
+          <Controller
+            control={control}
+            name="purchase_day"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Field
+                label="Day"
+                placeholder="—"
+                inputMode="numeric"
+                maxLength={2}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.purchase_day?.message}
+                hint="Optional"
+              />
+            )}
+          />
+        </View>
+      </View>
 
       <Controller
         control={control}
@@ -256,12 +288,10 @@ export function ItemForm({
         control={control}
         name="warranty_until"
         render={({ field: { onChange, onBlur, value } }) => (
-          <Field
+          <DateField
             label="Warranty until"
-            placeholder="YYYY-MM-DD"
-            inputMode="numeric"
-            value={value}
-            onChangeText={onChange}
+            value={value ?? ""}
+            onChange={onChange}
             onBlur={onBlur}
             error={errors.warranty_until?.message}
           />

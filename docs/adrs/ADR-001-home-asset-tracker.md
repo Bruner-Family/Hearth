@@ -161,7 +161,7 @@ A seeded `item_categories` table carries the suggested lifespan; the per-item `l
 
 ## 5. Resolved questions & future work
 
-1. **Reminders — deferred, direction chosen.** End-of-life and recurring-maintenance notifications (e.g., “HVAC filter every 90 days”) are desired but out of scope for v1. **Follow-up:** investigate **Supabase Database Webhooks** (pg_net triggers firing on table changes) and **scheduled Edge Functions / pg_cron** as the mechanism — a nightly job scanning `items` for approaching `purchase_date + effective_lifespan` and posting to a notification channel keeps this server-free and inside the Supabase platform. Tracked as a candidate ADR-002.
+1. **Reminders — deferred, direction chosen.** End-of-life and recurring-maintenance notifications (e.g., “HVAC filter every 90 days”) are desired but out of scope for v1. **Follow-up:** investigate **Supabase Database Webhooks** (pg_net triggers firing on table changes) and **scheduled Edge Functions / pg_cron** as the mechanism — a nightly job scanning `items` for approaching `purchase_date + effective_lifespan` and posting to a notification channel keeps this server-free and inside the Supabase platform. Tracked as a candidate ADR-003 (ADR-002 became the photo-storage-backend proposal).
 1. **Multi-currency — resolved: USD only.** All monetary values are integer cents, implicitly USD. The `currency` column is dropped from the v1 schema to avoid carrying dead weight; reintroducing it is a trivial additive migration if ever needed.
 
 *Resolved during review:* household sharing is **in-app invite by email** (§2.4, invites flow); receipt/manual **attachments are in v1** (§2.4, Storage).

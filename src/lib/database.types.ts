@@ -3,6 +3,7 @@
 
 export type Role = "owner" | "member";
 export type InviteStatus = "pending" | "accepted" | "revoked";
+export type PurchaseDatePrecision = "day" | "month";
 
 export type Household = {
   id: string;
@@ -33,6 +34,7 @@ export type Item = {
   name: string;
   location: string | null;
   purchase_date: string | null;
+  purchase_date_precision: PurchaseDatePrecision;
   price_cents: number | null;
   vendor: string | null;
   brand: string | null;

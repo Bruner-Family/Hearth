@@ -1,3 +1,5 @@
+import type { PurchaseDatePrecision } from "@/lib/database.types";
+
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -43,6 +45,48 @@ export function formatMonthYear(iso: string | null | undefined): string {
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   return fullDate.format(parseISODate(iso));
+}
+
+/** Format a purchase date at its recorded precision ("Jun 2019" vs "Jun 1, 2019"). */
+export function formatPurchaseDate(
+  iso: string | null | undefined,
+  precision: PurchaseDatePrecision,
+): string {
+  if (!iso) return "—";
+  return precision === "month" ? formatMonthYear(iso) : formatDate(iso);
+}
+
+/** Combine form values (YYYY-MM month, optional day) into the stored columns. */
+export function combinePurchaseDate(
+  month: string | undefined,
+  day: string | undefined,
+): {
+  purchase_date: string | null;
+  purchase_date_precision: PurchaseDatePrecision;
+} {
+  if (!month) return { purchase_date: null, purchase_date_precision: "day" };
+  if (!day) {
+    return {
+      purchase_date: `${month}-01`,
+      purchase_date_precision: "month",
+    };
+  }
+  return {
+    purchase_date: `${month}-${day.padStart(2, "0")}`,
+    purchase_date_precision: "day",
+  };
+}
+
+/** Split the stored purchase date back into form month/day values. */
+export function splitPurchaseDate(
+  date: string | null | undefined,
+  precision: PurchaseDatePrecision | undefined,
+): { month: string; day: string } {
+  if (!date) return { month: "", day: "" };
+  return {
+    month: date.slice(0, 7),
+    day: precision === "month" ? "" : String(Number(date.slice(8, 10))),
+  };
 }
 
 export function todayISO(): string {

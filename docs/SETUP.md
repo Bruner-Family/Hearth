@@ -64,7 +64,11 @@ Architecture background: [ADR-001](adrs/ADR-001-home-asset-tracker.md).
    - Create a Workload Identity Pool with an OIDC provider trusting
      `https://token.actions.githubusercontent.com`.
    - Restrict it with an attribute condition on this repository, e.g.
-     `assertion.repository == 'colinbruner/Home'`.
+     `assertion.repository == 'Bruner-Family/Home'`. Note: the OIDC
+     token's repository claim carries the repo's canonical owner (the
+     `Bruner-Family` org) — GitHub redirects mask transfers in URLs and
+     API calls, but IAM principal matching is exact, so a binding on a
+     pre-transfer name silently stops matching.
    - Grant the pool identity `roles/iam.workloadIdentityUser` on the
      deployer service account.
 4. This yields the two values the workflow needs:
