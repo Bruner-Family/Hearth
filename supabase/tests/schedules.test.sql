@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(7);
+select plan(17);
 
 -- Two users in two different households (handle_new_user trigger creates the
 -- household + owner membership for each).
@@ -97,6 +97,83 @@ select throws_ok(
      from bob_household $$,
   '23503', null,
   'schedule item must belong to the schedule''s household'
+);
+
+-- complete_schedule RPC ---------------------------------------------------------
+
+select test_as('00000000-0000-0000-0000-000000000001', 'alice@example.com');
+
+select lives_ok(
+  $$ select public.complete_schedule(
+       '20000000-0000-0000-0000-000000000002', '2026-06-12', '2026-09-12',
+       4500, 'self', '') $$,
+  'member can complete an item schedule'
+);
+
+select results_eq(
+  $$ select notes, cost_cents::int from public.maintenance_logs
+     where item_id = '10000000-0000-0000-0000-000000000001' $$,
+  $$ values ('Replace filter'::text, 4500) $$,
+  'completion writes a maintenance log; blank notes default to the task name'
+);
+
+select results_eq(
+  $$ select next_due, last_completed_on from public.maintenance_schedules
+     where id = '20000000-0000-0000-0000-000000000002' $$,
+  $$ values ('2026-09-12'::date, '2026-06-12'::date) $$,
+  'completion advances next_due and records last_completed_on'
+);
+
+select lives_ok(
+  $$ select public.complete_schedule(
+       '20000000-0000-0000-0000-000000000001', '2026-09-20', '2027-10-01',
+       null, null, null) $$,
+  'member can complete a house-level schedule'
+);
+
+select results_eq(
+  $$ select count(*)::int from public.maintenance_logs $$,
+  $$ values (1) $$,
+  'house-level completion does not write a maintenance log'
+);
+
+select throws_ok(
+  $$ select public.complete_schedule(
+       '20000000-0000-0000-0000-000000000002', '2026-06-12', '2026-06-12',
+       null, null, null) $$,
+  'P0001', 'Next due must be after the completion date',
+  'next_due must advance past the completion date'
+);
+
+select test_as('00000000-0000-0000-0000-000000000002', 'bob@example.com');
+
+select throws_ok(
+  $$ select public.complete_schedule(
+       '20000000-0000-0000-0000-000000000002', '2026-06-12', '2026-09-12',
+       null, null, null) $$,
+  'P0001', 'Schedule not found',
+  'non-member cannot complete another household''s schedule'
+);
+
+-- Constraint bounds & cascade ----------------------------------------------------
+
+select test_as('00000000-0000-0000-0000-000000000001', 'alice@example.com');
+
+select throws_ok(
+  $$ insert into public.maintenance_schedules (household_id, name, anchor_month, next_due)
+     select household_id, 'Bad month', 13, '2026-06-01' from alice_household $$,
+  '23514', null,
+  'anchor_month must be a real month (1-12)'
+);
+
+select lives_ok(
+  $$ delete from public.items where id = '10000000-0000-0000-0000-000000000001' $$,
+  'deleting an item cascades to its schedules'
+);
+
+select is_empty(
+  $$ select id from public.maintenance_schedules where id = '20000000-0000-0000-0000-000000000002' $$,
+  'item deletion removed its schedules'
 );
 
 select * from finish();
