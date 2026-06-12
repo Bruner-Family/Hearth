@@ -76,6 +76,7 @@ function useInvalidateItems() {
   const qc = useQueryClient();
   return (item: { id?: string; household_id?: string }) => {
     void qc.invalidateQueries({ queryKey: ["items", item.household_id] });
+    void qc.invalidateQueries({ queryKey: ["household-logs"] });
     if (item.id) void qc.invalidateQueries({ queryKey: ["item", item.id] });
   };
 }

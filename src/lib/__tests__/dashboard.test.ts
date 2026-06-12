@@ -6,7 +6,7 @@ import {
   spendThisYear,
 } from "@/lib/dashboard";
 import type { MaintenanceLog } from "@/lib/database.types";
-import { makeItem } from "./lifespan.test";
+import { makeItem } from "./fixtures";
 
 const now = new Date(2026, 5, 15); // 2026-06-15
 
