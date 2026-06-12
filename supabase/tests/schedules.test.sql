@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(17);
+select plan(18);
 
 -- Two users in two different households (handle_new_user trigger creates the
 -- household + owner membership for each).
@@ -145,6 +145,14 @@ select throws_ok(
   'next_due must advance past the completion date'
 );
 
+select throws_ok(
+  $$ select public.complete_schedule(
+       '20000000-0000-0000-0000-000000000002', '2026-06-12', '2026-09-12',
+       -100, null, null) $$,
+  '23514', null,
+  'negative cost is rejected by the maintenance_logs check constraint'
+);
+
 select test_as('00000000-0000-0000-0000-000000000002', 'bob@example.com');
 
 select throws_ok(
@@ -156,6 +164,8 @@ select throws_ok(
 );
 
 -- Constraint bounds & cascade ----------------------------------------------------
+-- Destructive: the item delete below cascades away fixtures the RPC tests
+-- depend on. Keep this section last; add new tests above it.
 
 select test_as('00000000-0000-0000-0000-000000000001', 'alice@example.com');
 

@@ -3,6 +3,9 @@
 -- (bypasses RLS), so it must re-check household membership itself, like
 -- accept_invite. The client computes new_next_due (src/lib/schedule.ts is the
 -- single source of cadence truth); this function only validates it advances.
+-- Cadence correctness is deliberately client-trusted and not re-derived or
+-- upper-bounded here: members can already set next_due to any value through
+-- the table grant, so the RPC adds no capability beyond direct updates.
 
 create function public.complete_schedule(
   schedule_id   uuid,
@@ -19,6 +22,8 @@ begin
     raise exception 'Not signed in';
   end if;
 
+  -- The row lock serializes concurrent completions; it does not dedupe them.
+  -- Completing twice on purpose is two real events and writes two logs.
   select * into sched
   from public.maintenance_schedules
   where id = schedule_id
