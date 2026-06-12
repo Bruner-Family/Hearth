@@ -51,6 +51,14 @@ describe("needsAttention", () => {
     const entries = needsAttention([warranty, aging, overdue], now);
     expect(entries.map((e) => e.item.id)).toEqual(["overdue", "aging", "w"]);
   });
+
+  it("includes warranties expiring today and exactly 90 days out, regardless of time of day", () => {
+    const afternoon = new Date(2026, 5, 15, 14, 30);
+    const today = makeItem({ id: "today", warranty_until: "2026-06-15" });
+    const edge = makeItem({ id: "edge", warranty_until: "2026-09-13" });
+    const entries = needsAttention([today, edge], afternoon);
+    expect(entries.map((e) => e.item.id)).toEqual(["today", "edge"]);
+  });
 });
 
 describe("nextFiveYears", () => {

@@ -22,6 +22,14 @@ export function needsAttention(
   const eol: (AttentionEntry & { ratio: number })[] = [];
   const warranty: AttentionEntry[] = [];
 
+  // Compare whole days: a warranty expiring today must still count this
+  // afternoon, so anchor "now" at local midnight.
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime();
+
   for (const item of items) {
     const status = lifespanStatus(item, now);
     if (status.ratio != null && status.ratio >= 0.9) {
@@ -34,7 +42,7 @@ export function needsAttention(
     }
     if (item.warranty_until) {
       const days =
-        (Date.parse(`${item.warranty_until}T00:00:00`) - now.getTime()) /
+        (Date.parse(`${item.warranty_until}T00:00:00`) - startOfToday) /
         DAY_MS;
       if (days >= 0 && days <= WARRANTY_WINDOW_DAYS) {
         warranty.push({
