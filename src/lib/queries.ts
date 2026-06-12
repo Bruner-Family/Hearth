@@ -129,6 +129,27 @@ export function useDeleteItem() {
 // Maintenance logs
 // ---------------------------------------------------------------------------
 
+export type HouseholdLog = MaintenanceLog & {
+  item: { id: string; name: string; household_id: string };
+};
+
+/** Every log in the household, newest first — feeds the Home dashboard. */
+export function useHouseholdLogs(householdId: string | undefined) {
+  return useQuery({
+    queryKey: ["household-logs", householdId],
+    enabled: !!householdId,
+    queryFn: async (): Promise<HouseholdLog[]> => {
+      const { data, error } = await supabase
+        .from("maintenance_logs")
+        .select("*, item:items!inner(id, name, household_id)")
+        .eq("item.household_id", householdId!)
+        .order("performed_on", { ascending: false });
+      if (error) throw error;
+      return data as unknown as HouseholdLog[];
+    },
+  });
+}
+
 export function useLogs(itemId: string | undefined) {
   return useQuery({
     queryKey: ["logs", itemId],
@@ -157,8 +178,10 @@ export function useCreateLog() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (log) =>
-      void qc.invalidateQueries({ queryKey: ["logs", log.item_id] }),
+    onSuccess: (log) => {
+      void qc.invalidateQueries({ queryKey: ["logs", log.item_id] });
+      void qc.invalidateQueries({ queryKey: ["household-logs"] });
+    },
   });
 }
 
@@ -173,8 +196,10 @@ export function useDeleteLog() {
       if (error) throw error;
       return log;
     },
-    onSuccess: (log) =>
-      void qc.invalidateQueries({ queryKey: ["logs", log.item_id] }),
+    onSuccess: (log) => {
+      void qc.invalidateQueries({ queryKey: ["logs", log.item_id] });
+      void qc.invalidateQueries({ queryKey: ["household-logs"] });
+    },
   });
 }
 
