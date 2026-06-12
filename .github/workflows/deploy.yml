@@ -43,6 +43,9 @@ jobs:
       - name: Lint
         run: npm run lint -- --max-warnings 0
 
+      - name: Unit tests
+        run: npm test
+
       - name: Static export
         run: npm run build
         env:

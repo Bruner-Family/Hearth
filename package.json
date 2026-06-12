@@ -39,7 +39,8 @@
     "eslint-config-expo": "^56.0.4",
     "prettier": "^3.8.4",
     "prettier-plugin-tailwindcss": "^0.8.0",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.8"
   },
   "scripts": {
     "start": "expo start",
@@ -48,6 +49,7 @@
     "android": "expo start --android",
     "build": "expo export --platform web",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "lint": "expo lint"
   },
   "private": true
