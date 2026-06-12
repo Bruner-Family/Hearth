@@ -14,14 +14,17 @@ export type LifespanStatus = {
   replaceBy: Date | null;
 };
 
-export function lifespanStatus(item: ItemWithCategory): LifespanStatus {
+export function lifespanStatus(
+  item: ItemWithCategory,
+  now: Date = new Date(),
+): LifespanStatus {
   const lifespanYears =
     item.lifespan_years_override ?? item.category.default_lifespan_years;
   const purchased = item.purchase_date
     ? parseISODate(item.purchase_date)
     : null;
   const ageYears = purchased
-    ? (Date.now() - purchased.getTime()) / MS_PER_YEAR
+    ? (now.getTime() - purchased.getTime()) / MS_PER_YEAR
     : null;
 
   let ratio: number | null = null;
