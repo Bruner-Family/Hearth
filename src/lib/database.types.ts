@@ -61,6 +61,23 @@ export type MaintenanceLog = {
   created_at: string;
 };
 
+export type MaintenanceSchedule = {
+  id: string;
+  household_id: string;
+  item_id: string | null;
+  name: string;
+  /** Every N months; mutually exclusive with anchor_month (DB check). */
+  interval_months: number | null;
+  /** Yearly in this month (1–12); mutually exclusive with interval_months. */
+  anchor_month: number | null;
+  next_due: string;
+  last_completed_on: string | null;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Attachment = {
   id: string;
   item_id: string;
@@ -108,6 +125,11 @@ export type Database = {
         "item_id" | "performed_on",
         "id" | "created_at"
       >;
+      maintenance_schedules: TableOf<
+        MaintenanceSchedule,
+        "household_id" | "name" | "next_due",
+        "id" | "created_at" | "updated_at"
+      >;
       attachments: TableOf<
         Attachment,
         "item_id" | "storage_path" | "mime_type",
@@ -123,6 +145,17 @@ export type Database = {
     Functions: {
       accept_invite: {
         Args: { invite_id: string };
+        Returns: undefined;
+      };
+      complete_schedule: {
+        Args: {
+          schedule_id: string;
+          performed_on: string;
+          new_next_due: string;
+          cost_cents?: number | null;
+          performed_by?: string | null;
+          notes?: string | null;
+        };
         Returns: undefined;
       };
     };
