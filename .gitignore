@@ -46,3 +46,4 @@ example
 
 # env files with real project values
 .env
+.superpowers/

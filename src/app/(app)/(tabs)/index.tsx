@@ -1,83 +1,89 @@
 import { useRouter } from "expo-router";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
-import { LifespanBar } from "@/components/LifespanBar";
-import { EmptyState, Loading } from "@/components/ui";
-import type { ItemWithCategory } from "@/lib/database.types";
-import { formatMonthYear } from "@/lib/format";
+import {
+  NeedsAttentionCard,
+  NextFiveYearsCard,
+  RecentActivityCard,
+  SpendCard,
+} from "@/components/DashboardCards";
+import { TimelineChart } from "@/components/TimelineChart";
+import { Button, Card, EmptyState, Loading } from "@/components/ui";
+import { needsAttention, nextFiveYears, spendThisYear } from "@/lib/dashboard";
 import { useHousehold } from "@/lib/household";
-import { formatYears, lifespanStatus } from "@/lib/lifespan";
-import { useItems } from "@/lib/queries";
+import { lifespanStatus } from "@/lib/lifespan";
+import { useHouseholdLogs, useItems } from "@/lib/queries";
 
-export default function ItemsScreen() {
+export default function HomeScreen() {
   const router = useRouter();
   const { active, isLoading: householdLoading } = useHousehold();
-  const { data: items, isLoading } = useItems(active?.household.id);
+  const { data: items = [], isLoading } = useItems(active?.household.id);
+  const { data: logs = [] } = useHouseholdLogs(active?.household.id);
 
   if (householdLoading || isLoading) return <Loading />;
 
+  if (items.length === 0) {
+    return (
+      <View className="flex-1 items-center justify-center bg-bg p-6">
+        <EmptyState
+          icon="🏡"
+          title="Welcome to Hearth"
+          body="Add your first home asset and this page becomes your home's dashboard."
+        />
+        <Button title="Add an item" onPress={() => router.push("/items/new")} />
+      </View>
+    );
+  }
+
+  const now = new Date();
+  const withLifespan = items.filter(
+    (item) => lifespanStatus(item, now).ratio !== null,
+  );
+  const attention = needsAttention(items, now);
+  const years = nextFiveYears(items, now);
+  const spend = spendThisYear(logs, now);
+
   return (
-    <View className="flex-1 bg-bg">
-      <FlatList
-        data={items ?? []}
-        keyExtractor={(item) => item.id}
-        contentContainerClassName="p-4 pb-28 gap-3"
-        renderItem={({ item }) => <ItemCard item={item} />}
-        ListEmptyComponent={
-          <EmptyState
-            icon="🏡"
-            title="No items yet"
-            body="Add your first home asset — the roof, the furnace, that fridge — and start its paper trail."
-          />
-        }
-      />
-      {/* Large touch target, thumb-reachable — mobile-first (§2.6) */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Add item"
-        className="absolute bottom-6 right-6 h-16 w-16 items-center justify-center rounded-full bg-accent shadow-lg active:opacity-80"
-        onPress={() => router.push("/items/new")}
-      >
-        <Text className="text-3xl leading-9 text-on-accent">＋</Text>
-      </Pressable>
-    </View>
+    <ScrollView
+      className="flex-1 bg-bg"
+      contentContainerClassName="mx-auto w-full max-w-5xl p-4 pb-12"
+    >
+      {/* Timeline hero — the lifespan bars lead the page (spec v1.1). */}
+      {withLifespan.length > 0 ? (
+        <Card>
+          <TimelineChart items={withLifespan} />
+          <View className="mt-4 flex-row justify-center gap-5">
+            <LegendDot className="bg-ok" label="healthy" />
+            <LegendDot className="bg-warn" label="aging" />
+            <LegendDot className="bg-danger" label="near end-of-life" />
+          </View>
+        </Card>
+      ) : (
+        <Card>
+          <Text className="text-sm text-ink-dim">
+            Items need a purchase date and a lifespan (category default or your
+            override) to appear on the timeline.
+          </Text>
+        </Card>
+      )}
+
+      <View className="mt-4 gap-4 md:flex-row">
+        <NeedsAttentionCard entries={attention} />
+        <NextFiveYearsCard years={years} />
+      </View>
+      <View className="mt-4 gap-4 md:flex-row">
+        <SpendCard spend={spend} />
+        <RecentActivityCard logs={logs} />
+      </View>
+    </ScrollView>
   );
 }
 
-function ItemCard({ item }: { item: ItemWithCategory }) {
-  const router = useRouter();
-  const status = lifespanStatus(item);
-
+function LegendDot({ className, label }: { className: string; label: string }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      className="rounded-2xl border border-edge bg-card p-4 active:opacity-70"
-      onPress={() => router.push(`/items/${item.id}`)}
-    >
-      <View className="flex-row items-center gap-3">
-        <Text className="text-3xl">{item.category.icon}</Text>
-        <View className="flex-1">
-          <Text className="text-base font-semibold text-ink" numberOfLines={1}>
-            {item.name}
-          </Text>
-          <Text className="text-sm text-ink-dim" numberOfLines={1}>
-            {[item.location, formatMonthYear(item.purchase_date)]
-              .filter((part) => part && part !== "—")
-              .join(" · ") || item.category.name}
-          </Text>
-        </View>
-        {status.ageYears != null ? (
-          <Text className="text-sm text-ink-dim">
-            {formatYears(status.ageYears)}
-            {status.lifespanYears ? ` / ${status.lifespanYears} yrs` : ""}
-          </Text>
-        ) : null}
-      </View>
-      {status.ratio != null ? (
-        <View className="mt-3">
-          <LifespanBar ratio={status.ratio} height={6} />
-        </View>
-      ) : null}
-    </Pressable>
+    <View className="flex-row items-center gap-1.5">
+      <View className={`h-2.5 w-2.5 rounded-full ${className}`} />
+      <Text className="text-xs text-ink-dim">{label}</Text>
+    </View>
   );
 }

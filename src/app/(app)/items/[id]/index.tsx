@@ -66,7 +66,10 @@ export default function ItemDetailScreen() {
   ];
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="p-4 pb-16">
+    <ScrollView
+      className="flex-1 bg-bg"
+      contentContainerClassName="mx-auto w-full max-w-2xl p-4 pb-16"
+    >
       <Stack.Screen
         options={{
           headerShown: true,

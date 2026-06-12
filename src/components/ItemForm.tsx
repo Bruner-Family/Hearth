@@ -241,62 +241,72 @@ export function ItemForm({
 
       <SectionTitle>Details</SectionTitle>
 
-      <Controller
-        control={control}
-        name="brand"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <Field
-            label="Brand"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.brand?.message}
+      <View className="md:flex-row md:gap-3">
+        <View className="md:flex-1">
+          <Controller
+            control={control}
+            name="brand"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Field
+                label="Brand"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.brand?.message}
+              />
+            )}
           />
-        )}
-      />
+        </View>
+        <View className="md:flex-1">
+          <Controller
+            control={control}
+            name="model"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Field
+                label="Model"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.model?.message}
+              />
+            )}
+          />
+        </View>
+      </View>
 
-      <Controller
-        control={control}
-        name="model"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <Field
-            label="Model"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.model?.message}
+      <View className="md:flex-row md:gap-3">
+        <View className="md:flex-1">
+          <Controller
+            control={control}
+            name="serial_number"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Field
+                label="Serial number"
+                autoCapitalize="characters"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.serial_number?.message}
+              />
+            )}
           />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="serial_number"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <Field
-            label="Serial number"
-            autoCapitalize="characters"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.serial_number?.message}
+        </View>
+        <View className="md:flex-1">
+          <Controller
+            control={control}
+            name="warranty_until"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <DateField
+                label="Warranty until"
+                value={value ?? ""}
+                onChange={onChange}
+                onBlur={onBlur}
+                error={errors.warranty_until?.message}
+              />
+            )}
           />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="warranty_until"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <DateField
-            label="Warranty until"
-            value={value ?? ""}
-            onChange={onChange}
-            onBlur={onBlur}
-            error={errors.warranty_until?.message}
-          />
-        )}
-      />
+        </View>
+      </View>
 
       <Controller
         control={control}

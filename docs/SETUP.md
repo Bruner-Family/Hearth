@@ -134,5 +134,5 @@ supabase test db
 
 After everything above: open `https://home.bruner.family`, sign in with a
 Pocket-ID account, add an item with a purchase date, confirm it appears on
-the Timeline tab, and hard-refresh `/items/<id>` to confirm the SPA
-fallback works.
+the timeline at the top of the Home tab, and hard-refresh `/items/<id>` to
+confirm the SPA fallback works.
