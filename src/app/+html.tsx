@@ -12,7 +12,7 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
-        <title>Hearth</title>
+        <title>Hearth — home asset & maintenance tracker</title>
         <meta
           name="description"
           content="Home asset & maintenance tracker for the household"
