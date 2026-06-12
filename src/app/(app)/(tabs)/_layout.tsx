@@ -30,18 +30,18 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Items",
+          title: "Home",
           tabBarIcon: ({ focused }) => (
-            <TabIcon glyph="🏠" focused={focused} />
+            <TabIcon glyph="🏡" focused={focused} />
           ),
         }}
       />
       <Tabs.Screen
-        name="timeline"
+        name="items"
         options={{
-          title: "Timeline",
+          title: "Items",
           tabBarIcon: ({ focused }) => (
-            <TabIcon glyph="📊" focused={focused} />
+            <TabIcon glyph="📦" focused={focused} />
           ),
         }}
       />
