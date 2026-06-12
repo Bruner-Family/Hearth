@@ -22,7 +22,10 @@ export default function SettingsScreen() {
   const { memberships, active, setActiveId } = useHousehold();
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="p-4 pb-12">
+    <ScrollView
+      className="flex-1 bg-bg"
+      contentContainerClassName="mx-auto w-full max-w-2xl p-4 pb-12"
+    >
       <MyInvitesCard />
 
       <SectionTitle>Appearance</SectionTitle>

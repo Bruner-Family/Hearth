@@ -65,7 +65,7 @@ export default function NewLogScreen() {
       />
       <ScrollView
         className="flex-1"
-        contentContainerClassName="p-4 pb-16"
+        contentContainerClassName="mx-auto w-full max-w-2xl p-4 pb-16"
         keyboardShouldPersistTaps="handled"
       >
         <Controller
