@@ -8,7 +8,8 @@ import type {
   YearSpend,
 } from "@/lib/dashboard";
 import { formatCents, formatDate } from "@/lib/format";
-import type { HouseholdLog } from "@/lib/queries";
+import type { HouseholdLog, ScheduleWithItem } from "@/lib/queries";
+import { formatDueness, type TaskEntry } from "@/lib/schedule";
 
 function CardTitle({ children }: { children: string }) {
   return (
@@ -20,32 +21,90 @@ function QuietNote({ children }: { children: string }) {
   return <Text className="text-sm text-ink-dim">{children}</Text>;
 }
 
-export function NeedsAttentionCard({ entries }: { entries: AttentionEntry[] }) {
+export function NeedsAttentionCard({
+  tasks,
+  entries,
+}: {
+  tasks: TaskEntry<ScheduleWithItem>[];
+  entries: AttentionEntry[];
+}) {
   const router = useRouter();
   return (
     <Card className="flex-1">
-      <CardTitle>⚠️ Needs attention</CardTitle>
-      {entries.length === 0 ? (
-        <QuietNote>All clear — nothing is near end-of-life.</QuietNote>
+      <View className="mb-2 flex-row items-baseline justify-between">
+        <Text className="text-sm font-semibold text-ink">
+          ⚠️ Needs attention
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          className="active:opacity-70"
+          onPress={() => router.push("/schedules")}
+        >
+          <Text className="text-xs text-accent">All schedules ›</Text>
+        </Pressable>
+      </View>
+      {tasks.length === 0 && entries.length === 0 ? (
+        <QuietNote>All clear — nothing due, nothing near end-of-life.</QuietNote>
       ) : (
-        entries.map(({ item, reason, detail }) => (
-          <Pressable
-            key={`${item.id}-${reason}`}
-            accessibilityRole="button"
-            className="flex-row items-center gap-2 py-1.5 active:opacity-70"
-            onPress={() => router.push(`/items/${item.id}`)}
-          >
+        <>
+          {tasks.map(({ schedule, bucket, daysUntil }) => (
             <View
-              className={`h-2 w-2 rounded-full ${
-                reason === "end-of-life" ? "bg-danger" : "bg-warn"
-              }`}
-            />
-            <Text className="flex-1 text-sm text-ink" numberOfLines={1}>
-              {item.category.icon} {item.name}
-            </Text>
-            <Text className="text-xs text-ink-dim">{detail}</Text>
-          </Pressable>
-        ))
+              key={schedule.id}
+              className="flex-row items-center gap-2 py-1.5"
+            >
+              <View
+                className={`h-2 w-2 rounded-full ${
+                  bucket === "due" ? "bg-danger" : "bg-warn"
+                }`}
+              />
+              <Pressable
+                accessibilityRole="button"
+                className="flex-1 active:opacity-70"
+                onPress={() =>
+                  router.push(
+                    schedule.item
+                      ? `/items/${schedule.item.id}`
+                      : `/schedules/${schedule.id}/edit`,
+                  )
+                }
+              >
+                <Text className="text-sm text-ink" numberOfLines={1}>
+                  {schedule.name}
+                  {schedule.item ? ` — ${schedule.item.name}` : ""}
+                </Text>
+              </Pressable>
+              <Text className="text-xs text-ink-dim">
+                {formatDueness(daysUntil)}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Mark "${schedule.name}" done`}
+                className="rounded-full border border-edge px-2.5 py-1 active:opacity-70"
+                onPress={() => router.push(`/schedules/${schedule.id}/complete`)}
+              >
+                <Text className="text-sm text-ok">✓</Text>
+              </Pressable>
+            </View>
+          ))}
+          {entries.map(({ item, reason, detail }) => (
+            <Pressable
+              key={`${item.id}-${reason}`}
+              accessibilityRole="button"
+              className="flex-row items-center gap-2 py-1.5 active:opacity-70"
+              onPress={() => router.push(`/items/${item.id}`)}
+            >
+              <View
+                className={`h-2 w-2 rounded-full ${
+                  reason === "end-of-life" ? "bg-danger" : "bg-warn"
+                }`}
+              />
+              <Text className="flex-1 text-sm text-ink" numberOfLines={1}>
+                {item.category.icon} {item.name}
+              </Text>
+              <Text className="text-xs text-ink-dim">{detail}</Text>
+            </Pressable>
+          ))}
+        </>
       )}
     </Card>
   );

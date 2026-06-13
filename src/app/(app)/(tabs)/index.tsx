@@ -12,13 +12,15 @@ import { Button, Card, EmptyState, Loading } from "@/components/ui";
 import { needsAttention, nextFiveYears, spendThisYear } from "@/lib/dashboard";
 import { useHousehold } from "@/lib/household";
 import { lifespanStatus } from "@/lib/lifespan";
-import { useHouseholdLogs, useItems } from "@/lib/queries";
+import { useHouseholdLogs, useItems, useSchedules } from "@/lib/queries";
+import { dueTasks } from "@/lib/schedule";
 
 export default function HomeScreen() {
   const router = useRouter();
   const { active, isLoading: householdLoading } = useHousehold();
   const { data: items = [], isLoading } = useItems(active?.household.id);
   const { data: logs = [] } = useHouseholdLogs(active?.household.id);
+  const { data: schedules = [] } = useSchedules(active?.household.id);
 
   if (householdLoading || isLoading) return <Loading />;
 
@@ -40,6 +42,7 @@ export default function HomeScreen() {
     (item) => lifespanStatus(item, now).ratio !== null,
   );
   const attention = needsAttention(items, now);
+  const tasks = dueTasks(schedules, now);
   const years = nextFiveYears(items, now);
   const spend = spendThisYear(logs, now);
 
@@ -68,7 +71,7 @@ export default function HomeScreen() {
       )}
 
       <View className="mt-4 gap-4 md:flex-row">
-        <NeedsAttentionCard entries={attention} />
+        <NeedsAttentionCard tasks={tasks} entries={attention} />
         <NextFiveYearsCard years={years} />
       </View>
       <View className="mt-4 gap-4 md:flex-row">
