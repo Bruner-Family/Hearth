@@ -7,6 +7,7 @@ import {
   RecentActivityCard,
   SpendCard,
 } from "@/components/DashboardCards";
+import { StarterPackCard } from "@/components/StarterPackCard";
 import { TimelineChart } from "@/components/TimelineChart";
 import { Button, Card, EmptyState, Loading } from "@/components/ui";
 import { needsAttention, nextFiveYears, spendThisYear } from "@/lib/dashboard";
@@ -69,6 +70,11 @@ export default function HomeScreen() {
           </Text>
         </Card>
       )}
+
+      <StarterPackCard
+        householdId={active!.household.id}
+        hasSchedules={schedules.length > 0}
+      />
 
       <View className="mt-4 gap-4 md:flex-row">
         <NeedsAttentionCard tasks={tasks} entries={attention} />
