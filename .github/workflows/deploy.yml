@@ -74,9 +74,19 @@ jobs:
           supabase db start
           supabase test db
 
+  functions-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check edge functions
+        run: deno check supabase/functions/notify/index.ts
+
   migrate:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [build, rls-tests]
+    needs: [build, rls-tests, functions-check]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -92,6 +102,11 @@ jobs:
         run: |
           supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
           supabase db push
+
+      - name: Deploy edge functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy notify --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
