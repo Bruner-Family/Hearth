@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(11);
+select plan(12);
 
 -- Alice (owner of her household) and Bob (a different household).
 insert into auth.users (id, email, raw_user_meta_data)
@@ -146,6 +146,16 @@ select results_eq(
   $$ values (2) $$,
   '30-day lead includes the schedule due in 20 days'
 );
+
+-- The digest is service-role only (the Edge Function); a signed-in user must
+-- not be able to call it directly. Locks the grant against regressions.
+set local role authenticated;
+select throws_ok(
+  $$ select public.notifications_digest((select household_id from alice_household), 14) $$,
+  '42501', null,
+  'authenticated users cannot execute notifications_digest (service_role only)'
+);
+reset role;
 
 select * from finish();
 rollback;
