@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
-import { Button, Card } from "@/components/ui";
+import { Button, Card, ErrorNote } from "@/components/ui";
 import { todayISO } from "@/lib/format";
 import { useCreateSchedule } from "@/lib/queries";
 import { addMonths, formatCadence, nextAnchorOccurrence } from "@/lib/schedule";
@@ -72,6 +72,10 @@ export function StarterPackCard({
         });
       }
       dismiss();
+    } catch {
+      // A mid-loop failure leaves earlier tasks created; surface the error
+      // (createSchedule.error) and keep the card so the user can retry — the
+      // ones already added drop off as next_due falls outside the window.
     } finally {
       setSaving(false);
     }
@@ -90,7 +94,8 @@ export function StarterPackCard({
         return (
           <Pressable
             key={task.name}
-            accessibilityRole="button"
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: on }}
             className="flex-row items-center gap-3 py-2 active:opacity-70"
             onPress={() => toggle(i)}
           >
@@ -108,6 +113,9 @@ export function StarterPackCard({
           </Pressable>
         );
       })}
+      {createSchedule.error ? (
+        <ErrorNote message={createSchedule.error.message} />
+      ) : null}
       <View className="mt-3 flex-row gap-3">
         <View className="flex-1">
           <Button title="No thanks" variant="secondary" onPress={dismiss} />
