@@ -10,3 +10,8 @@ major_version = 17
 # Supabase dashboard — custom OIDC providers are not yet expressible here.
 site_url = "https://home.bruner.family"
 additional_redirect_urls = ["http://localhost:8081"]
+
+[functions.notify]
+# The handler authenticates itself (cron secret OR a verified user JWT), so the
+# platform's blanket JWT gate is off (spec v1.3).
+verify_jwt = false
