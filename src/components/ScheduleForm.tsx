@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { Pressable, Text, View } from "react-native";
 
 import { DateField } from "@/components/DateField";
@@ -37,7 +37,6 @@ export function ScheduleForm({
   const {
     control,
     handleSubmit,
-    watch,
     formState: { errors },
   } = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleFormSchema),
@@ -52,7 +51,7 @@ export function ScheduleForm({
     },
   });
 
-  const cadence = watch("cadence");
+  const cadence = useWatch({ control, name: "cadence" });
 
   const submit = handleSubmit((values) => {
     const anchor = values.cadence === "anchor" ? values.anchor_month : null;
