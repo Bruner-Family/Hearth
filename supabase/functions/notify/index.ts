@@ -73,15 +73,26 @@ Deno.serve(async (req) => {
     }
     const { data: rows, error } = await db
       .from("notification_settings").select("*").eq("enabled", true);
-    if (error) return new Response(error.message, { status: 500 });
-    let sent = 0;
-    for (const s of (rows ?? []) as Settings[]) {
-      const text = await digestText(db, s);
-      if (!text) continue; // quiet by design
-      await sendToChannels(s, text);
-      sent += 1;
+    if (error) {
+      console.error("notify: failed to read notification_settings", error);
+      return new Response("internal error", { status: 500 });
     }
-    return Response.json({ ok: true, households: (rows ?? []).length, sent });
+    let sent = 0;
+    let failed = 0;
+    // Isolate each household: one bad row (RPC error, missing parent, dead
+    // webhook) must not abort the weekly fan-out for everyone after it.
+    for (const s of (rows ?? []) as Settings[]) {
+      try {
+        const text = await digestText(db, s);
+        if (!text) continue; // quiet by design
+        await sendToChannels(s, text);
+        sent += 1;
+      } catch (e) {
+        failed += 1;
+        console.error(`notify: digest failed for household ${s.household_id}`, e);
+      }
+    }
+    return Response.json({ ok: true, households: (rows ?? []).length, sent, failed });
   }
 
   // ---- Test mode (owner-verified) ---------------------------------------
