@@ -136,14 +136,23 @@ hardware store.
   "Bulb: A19 60W", "Paint: SW 7029"), prominent on item detail and indexed
   by v1.4 search. Stored as a JSONB column on `items` — a handful of pairs
   per item doesn't justify a new table and its RLS policies.
+- **Document attachments:** attach a PDF or scanned document (receipt,
+  manual, warranty) to an item alongside photos, surfaced on item detail
+  beside the reference details. The `attachments` table,
+  `useUploadAttachment`, and the 📄 thumbnail fallback already handle
+  arbitrary file types; the work is a document picker
+  (`expo-document-picker`) plus file names on non-image thumbnails. Backlog:
+  [docs/TODO.md](../../TODO.md). (Decided 2026-06-13 to land here rather than
+  v1.4 — see §4.)
 - **QR labels:** printable sheet of per-item QR codes deep-linking to the
   item page (Expo Router URLs already support `/items/<id>`); scanning at
   the furnace opens its history and log form.
 - **CSV import:** desktop bulk-load of items from a spreadsheet with column
   mapping, for cataloging the rest of the house.
 
-**Done when:** the filter size is two taps away in the store aisle, and a
-sticker on the furnace opens its Hearth page.
+**Done when:** the filter size is two taps away in the store aisle, a sticker
+on the furnace opens its Hearth page, and the appliance's manual is one tap
+from there.
 
 ## 4. Decisions log
 
@@ -155,9 +164,15 @@ sticker on the furnace opens its Hearth page.
 | Reminder channels | In-app first, then email + Discord/Telegram | PWA web push (deferred) |
 | Checklists model | Schedules with season anchors | Separate checklist system |
 | Search | Client-side over cached data | Postgres full-text/trigram |
+| Document attachments → v1.5 (2026-06-13) | "At the Appliance" — reference material in hand at the equipment | v1.4, whose theme names "manual" retrieval; a standalone quick win |
 
 Declined for now: faster-capture flow (photo-first add) — entry speed was
 not the limiting pain.
+
+v1.4's theme line ("get to any item, serial, or manual in seconds") names
+manuals as a retrieval target, but attaching them is a v1.5 capability;
+until v1.5 ships, that part of v1.4's promise is aspirational. Accepted —
+the attachment work is small and fits v1.5's "at the appliance" theme best.
 
 ## 5. Out of scope for this roadmap
 
