@@ -10,6 +10,7 @@ import {
 
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { LifespanBar } from "@/components/LifespanBar";
+import { ScheduleSection } from "@/components/ScheduleSection";
 import { Button, Card, Loading, SectionTitle } from "@/components/ui";
 import type { MaintenanceLog } from "@/lib/database.types";
 import { formatCents, formatDate, formatPurchaseDate } from "@/lib/format";
@@ -129,6 +130,8 @@ export default function ItemDetailScreen() {
           </View>
         ) : null}
       </Card>
+
+      <ScheduleSection itemId={item.id} />
 
       <View className="flex-row items-baseline justify-between">
         <SectionTitle>Maintenance log</SectionTitle>

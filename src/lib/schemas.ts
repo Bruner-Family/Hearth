@@ -87,6 +87,40 @@ export const logFormSchema = z.object({
 
 export type LogFormValues = z.infer<typeof logFormSchema>;
 
+export const scheduleFormSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name is required").max(200),
+    cadence: z.enum(["interval", "anchor"]),
+    interval_months: z
+      .string()
+      .regex(/^\d{0,3}$/, "Months, e.g. 3")
+      .optional()
+      .or(z.literal("")),
+    anchor_month: z.number().int().min(1).max(12).nullable(),
+    next_due: optionalDate,
+    notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  })
+  .superRefine((values, ctx) => {
+    if (values.cadence === "interval") {
+      const months = Number(values.interval_months);
+      if (!values.interval_months || months < 1 || months > 120) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["interval_months"],
+          message: "Between 1 and 120 months",
+        });
+      }
+    } else if (values.anchor_month == null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["anchor_month"],
+        message: "Pick a month",
+      });
+    }
+  });
+
+export type ScheduleFormValues = z.infer<typeof scheduleFormSchema>;
+
 export const inviteFormSchema = z.object({
   email: z.email("Enter a valid email address"),
 });

@@ -16,8 +16,10 @@ import type {
   ItemCategory,
   ItemWithCategory,
   MaintenanceLog,
+  MaintenanceSchedule,
   Role,
 } from "@/lib/database.types";
+import { nextAnchorOccurrence } from "@/lib/schedule";
 import { supabase } from "@/lib/supabase";
 
 const STORAGE_KEY = "hearth.demo";
@@ -133,6 +135,13 @@ function isoMonthsAgo(months: number, day = 1): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+/** ISO date `days` days from today (negative = past). */
+function isoDaysFromNow(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
 /**
  * Seed dates are relative to "now" so the lifespan bars and the 5-year
  * replacement outlook always show a healthy/aging/end-of-life mix, no matter
@@ -190,7 +199,35 @@ function seedLog(
   };
 }
 
-function seed(): { items: ItemWithCategory[]; logs: MaintenanceLog[] } {
+function seedSchedule(
+  index: number,
+  itemId: string | null,
+  name: string,
+  cadence: { interval_months?: number; anchor_month?: number },
+  next_due: string,
+): MaintenanceSchedule {
+  const createdAt = new Date(Date.now() - index * 60_000).toISOString();
+  return {
+    id: `demo-sched-${index}`,
+    household_id: DEMO_HOUSEHOLD.id,
+    item_id: itemId,
+    name,
+    interval_months: cadence.interval_months ?? null,
+    anchor_month: cadence.anchor_month ?? null,
+    next_due,
+    last_completed_on: null,
+    notes: null,
+    created_by: DEMO_USER_ID,
+    created_at: createdAt,
+    updated_at: createdAt,
+  };
+}
+
+function seed(): {
+  items: ItemWithCategory[];
+  logs: MaintenanceLog[];
+  schedules: MaintenanceSchedule[];
+} {
   const items = [
     seedItem(1, "demo-cat-water-heater", "Water heater", 120, {
       location: "Basement",
@@ -289,7 +326,32 @@ function seed(): { items: ItemWithCategory[]; logs: MaintenanceLog[] } {
     }),
   ];
 
-  return { items, logs };
+  // One overdue (badges the Home tab in the demo), one upcoming, one seasonal.
+  const schedules = [
+    seedSchedule(
+      1,
+      "demo-item-7",
+      "Replace furnace filter",
+      { interval_months: 3 },
+      isoDaysFromNow(-6),
+    ),
+    seedSchedule(
+      2,
+      "demo-item-1",
+      "Flush water heater tank",
+      { interval_months: 12 },
+      isoDaysFromNow(21),
+    ),
+    seedSchedule(
+      3,
+      null,
+      "Clean gutters",
+      { anchor_month: 10 },
+      nextAnchorOccurrence(10, isoDaysFromNow(0)),
+    ),
+  ];
+
+  return { items, logs, schedules };
 }
 
 // ---------------------------------------------------------------------------
@@ -299,6 +361,10 @@ function seed(): { items: ItemWithCategory[]; logs: MaintenanceLog[] } {
 type ItemInsert = Database["public"]["Tables"]["items"]["Insert"];
 type ItemUpdate = Database["public"]["Tables"]["items"]["Update"];
 type LogInsert = Database["public"]["Tables"]["maintenance_logs"]["Insert"];
+type ScheduleInsert =
+  Database["public"]["Tables"]["maintenance_schedules"]["Insert"];
+type ScheduleUpdate =
+  Database["public"]["Tables"]["maintenance_schedules"]["Update"];
 
 let db = seed();
 let seq = 0;
@@ -368,6 +434,7 @@ export const demoDb = {
   deleteItem: (id: string) => {
     db.items = db.items.filter((i) => i.id !== id);
     db.logs = db.logs.filter((l) => l.item_id !== id);
+    db.schedules = db.schedules.filter((s) => s.item_id !== id);
   },
 
   listLogs: (itemId: string): MaintenanceLog[] =>
@@ -392,6 +459,87 @@ export const demoDb = {
 
   deleteLog: (id: string) => {
     db.logs = db.logs.filter((l) => l.id !== id);
+  },
+
+  listSchedules: (): (MaintenanceSchedule & {
+    item: { id: string; name: string } | null;
+  })[] =>
+    [...db.schedules]
+      .sort((a, b) => (a.next_due > b.next_due ? 1 : -1))
+      .map((s) => {
+        const item = s.item_id
+          ? db.items.find((i) => i.id === s.item_id)
+          : undefined;
+        return { ...s, item: item ? { id: item.id, name: item.name } : null };
+      }),
+
+  createSchedule: (values: ScheduleInsert): MaintenanceSchedule => {
+    const now = new Date().toISOString();
+    const schedule: MaintenanceSchedule = {
+      id: `demo-new-sched-${++seq}`,
+      household_id: values.household_id,
+      item_id: values.item_id ?? null,
+      name: values.name,
+      interval_months: values.interval_months ?? null,
+      anchor_month: values.anchor_month ?? null,
+      next_due: values.next_due,
+      last_completed_on: values.last_completed_on ?? null,
+      notes: values.notes ?? null,
+      created_by: DEMO_USER_ID,
+      created_at: now,
+      updated_at: now,
+    };
+    db.schedules = [schedule, ...db.schedules];
+    return schedule;
+  },
+
+  updateSchedule: (id: string, values: ScheduleUpdate): MaintenanceSchedule => {
+    const current = db.schedules.find((s) => s.id === id);
+    if (!current) throw new Error("Schedule not found");
+    const next: MaintenanceSchedule = {
+      ...current,
+      ...values,
+      id,
+      updated_at: new Date().toISOString(),
+    };
+    db.schedules = db.schedules.map((s) => (s.id === id ? next : s));
+    return next;
+  },
+
+  deleteSchedule: (id: string) => {
+    db.schedules = db.schedules.filter((s) => s.id !== id);
+  },
+
+  /** Mirrors the complete_schedule RPC: log entry (item schedules) + advance. */
+  completeSchedule: (
+    args: {
+      schedule: MaintenanceSchedule;
+      performed_on: string;
+      cost_cents: number | null;
+      performed_by: string | null;
+      notes: string | null;
+    },
+    newNextDue: string,
+  ): void => {
+    if (args.schedule.item_id) {
+      demoDb.createLog({
+        item_id: args.schedule.item_id,
+        performed_on: args.performed_on,
+        cost_cents: args.cost_cents,
+        performed_by: args.performed_by,
+        notes: args.notes?.trim() ? args.notes.trim() : args.schedule.name,
+      });
+    }
+    db.schedules = db.schedules.map((s) =>
+      s.id === args.schedule.id
+        ? {
+            ...s,
+            next_due: newNextDue,
+            last_completed_on: args.performed_on,
+            updated_at: new Date().toISOString(),
+          }
+        : s,
+    );
   },
 
   members: (): HouseholdMember[] => [
