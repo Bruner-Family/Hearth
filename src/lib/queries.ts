@@ -8,13 +8,19 @@ import type {
   ItemCategory,
   ItemWithCategory,
   MaintenanceLog,
+  MaintenanceSchedule,
 } from "@/lib/database.types";
 import { demoDb, useDemo } from "@/lib/demo";
+import { advanceSchedule } from "@/lib/schedule";
 import { supabase } from "@/lib/supabase";
 
 type ItemInsert = Database["public"]["Tables"]["items"]["Insert"];
 type ItemUpdate = Database["public"]["Tables"]["items"]["Update"];
 type LogInsert = Database["public"]["Tables"]["maintenance_logs"]["Insert"];
+type ScheduleInsert =
+  Database["public"]["Tables"]["maintenance_schedules"]["Insert"];
+type ScheduleUpdate =
+  Database["public"]["Tables"]["maintenance_schedules"]["Update"];
 
 const ITEM_SELECT = "*, category:item_categories(*)";
 
@@ -84,6 +90,7 @@ function useInvalidateItems() {
   return (item: { id?: string; household_id?: string }) => {
     void qc.invalidateQueries({ queryKey: ["items", item.household_id] });
     void qc.invalidateQueries({ queryKey: ["household-logs"] });
+    void qc.invalidateQueries({ queryKey: ["schedules"] });
     if (item.id) void qc.invalidateQueries({ queryKey: ["item", item.id] });
   };
 }
@@ -225,6 +232,147 @@ export function useDeleteLog() {
     onSuccess: (log) => {
       void qc.invalidateQueries({ queryKey: ["logs", log.item_id] });
       void qc.invalidateQueries({ queryKey: ["household-logs"] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Maintenance schedules (roadmap spec v1.2)
+// ---------------------------------------------------------------------------
+
+export type ScheduleWithItem = MaintenanceSchedule & {
+  item: { id: string; name: string } | null;
+};
+
+const SCHEDULE_SELECT = "*, item:items(id, name)";
+
+/** Every schedule in the household, soonest due first. */
+export function useSchedules(householdId: string | undefined) {
+  const { enabled: demo } = useDemo();
+  return useQuery({
+    queryKey: ["schedules", householdId],
+    enabled: !!householdId,
+    queryFn: async (): Promise<ScheduleWithItem[]> => {
+      if (demo) return demoDb.listSchedules();
+      const { data, error } = await supabase
+        .from("maintenance_schedules")
+        .select(SCHEDULE_SELECT)
+        .eq("household_id", householdId!)
+        .order("next_due");
+      if (error) throw error;
+      return data as unknown as ScheduleWithItem[];
+    },
+  });
+}
+
+export function useCreateSchedule() {
+  const { enabled: demo } = useDemo();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: ScheduleInsert) => {
+      if (demo) return demoDb.createSchedule(values);
+      const { data, error } = await supabase
+        .from("maintenance_schedules")
+        .insert(values)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (schedule) =>
+      void qc.invalidateQueries({
+        queryKey: ["schedules", schedule.household_id],
+      }),
+  });
+}
+
+export function useUpdateSchedule() {
+  const { enabled: demo } = useDemo();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...values }: ScheduleUpdate & { id: string }) => {
+      if (demo) return demoDb.updateSchedule(id, values);
+      const { data, error } = await supabase
+        .from("maintenance_schedules")
+        .update(values)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (schedule) =>
+      void qc.invalidateQueries({
+        queryKey: ["schedules", schedule.household_id],
+      }),
+  });
+}
+
+export function useDeleteSchedule() {
+  const { enabled: demo } = useDemo();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (schedule: { id: string; household_id: string }) => {
+      if (demo) {
+        demoDb.deleteSchedule(schedule.id);
+        return schedule;
+      }
+      const { error } = await supabase
+        .from("maintenance_schedules")
+        .delete()
+        .eq("id", schedule.id);
+      if (error) throw error;
+      return schedule;
+    },
+    onSuccess: (schedule) =>
+      void qc.invalidateQueries({
+        queryKey: ["schedules", schedule.household_id],
+      }),
+  });
+}
+
+export type CompleteScheduleArgs = {
+  schedule: ScheduleWithItem;
+  performed_on: string;
+  cost_cents: number | null;
+  performed_by: string | null;
+  notes: string | null;
+};
+
+/**
+ * One-tap check-off: computes the advanced due date client-side
+ * (advanceSchedule is the single source of cadence truth) and lets the
+ * complete_schedule RPC write the log + advance atomically.
+ */
+export function useCompleteSchedule() {
+  const { enabled: demo } = useDemo();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: CompleteScheduleArgs) => {
+      const new_next_due = advanceSchedule(args.schedule, args.performed_on);
+      if (demo) {
+        demoDb.completeSchedule(args, new_next_due);
+        return args.schedule;
+      }
+      const { error } = await supabase.rpc("complete_schedule", {
+        schedule_id: args.schedule.id,
+        performed_on: args.performed_on,
+        new_next_due,
+        cost_cents: args.cost_cents,
+        performed_by: args.performed_by,
+        notes: args.notes,
+      });
+      if (error) throw error;
+      return args.schedule;
+    },
+    onSuccess: (schedule) => {
+      void qc.invalidateQueries({
+        queryKey: ["schedules", schedule.household_id],
+      });
+      if (schedule.item_id) {
+        void qc.invalidateQueries({ queryKey: ["logs", schedule.item_id] });
+        void qc.invalidateQueries({ queryKey: ["household-logs"] });
+      }
     },
   });
 }
