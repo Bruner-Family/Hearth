@@ -26,6 +26,27 @@ ADR in [`docs/adrs/`](adrs/) instead.
   - When the iOS target becomes real, swap the native branch of `DateField`
     for `@react-native-community/datetimepicker` or similar.
 
+## Attachments
+
+- [ ] **Attach a PDF or document alongside photos.** Appliances and items
+  usually ship with a receipt, manual, or warranty document as a PDF; we
+  should be able to associate those with an item, not just photos.
+  - **Target release: v1.5 "At the Appliance"** — grouped with reference
+    details and QR labels as item reference material in hand at the
+    equipment (roadmap
+    [spec](superpowers/specs/2026-06-11-hearth-feature-roadmap-design.md) §3
+    v1.5, decided 2026-06-13).
+  - Most of the stack already supports it: `attachments` stores an arbitrary
+    `mime_type` + `storage_path` (no image assumption), `useUploadAttachment`
+    (`src/lib/queries.ts`) uploads any `mimeType`/`body`, and
+    `AttachmentThumb` (`src/components/AttachmentsSection.tsx`) already renders
+    a 📄 fallback for non-image types and opens them via `Linking.openURL`.
+  - The gap is the **picker**: `AttachmentsSection` only offers
+    `expo-image-picker` with `mediaTypes: "images"`, so there's no way to
+    select a PDF/document. Add an "Add document" button backed by
+    `expo-document-picker` (the upload/render path is unchanged), and show the
+    file name on non-image thumbs so a wall of 📄 icons stays distinguishable.
+
 ## Storage
 
 - [ ] Evaluate moving photo/attachment storage off Supabase Storage to a
