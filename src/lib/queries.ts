@@ -9,6 +9,7 @@ import type {
   ItemWithCategory,
   MaintenanceLog,
   MaintenanceSchedule,
+  NotificationSettings,
 } from "@/lib/database.types";
 import { demoDb, useDemo } from "@/lib/demo";
 import { advanceSchedule } from "@/lib/schedule";
@@ -373,6 +374,62 @@ export function useCompleteSchedule() {
         void qc.invalidateQueries({ queryKey: ["logs", schedule.item_id] });
         void qc.invalidateQueries({ queryKey: ["household-logs"] });
       }
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Notification settings (roadmap spec v1.3)
+// ---------------------------------------------------------------------------
+
+type NotificationSettingsUpsert =
+  Database["public"]["Tables"]["notification_settings"]["Insert"];
+
+export function useNotificationSettings(householdId: string | undefined) {
+  const { enabled: demo } = useDemo();
+  return useQuery({
+    queryKey: ["notification-settings", householdId],
+    enabled: !!householdId,
+    queryFn: async (): Promise<NotificationSettings | null> => {
+      if (demo) return demoDb.notificationSettings();
+      const { data, error } = await supabase
+        .from("notification_settings")
+        .select("*")
+        .eq("household_id", householdId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useUpsertNotificationSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: NotificationSettingsUpsert) => {
+      const { data, error } = await supabase
+        .from("notification_settings")
+        .upsert(values, { onConflict: "household_id" })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (row) =>
+      void qc.invalidateQueries({
+        queryKey: ["notification-settings", row.household_id],
+      }),
+  });
+}
+
+/** Fires the notify function in test mode for the owner's household. */
+export function useSendTestNotification() {
+  return useMutation({
+    mutationFn: async (householdId: string) => {
+      const { error } = await supabase.functions.invoke("notify", {
+        body: { household_id: householdId },
+      });
+      if (error) throw error;
     },
   });
 }
