@@ -2,6 +2,7 @@ import { Platform, Pressable, Text } from "react-native";
 
 import { itemsToCsv } from "@/lib/csv";
 import type { ItemWithCategory } from "@/lib/database.types";
+import { todayISO } from "@/lib/format";
 
 /** Trigger a browser download of `csv` as `filename` (web only). */
 function downloadCsv(filename: string, csv: string) {
@@ -18,13 +19,6 @@ function downloadCsv(filename: string, csv: string) {
   URL.revokeObjectURL(url);
 }
 
-function todayStamp(): string {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
 export function ExportCsvButton({ items }: { items: ItemWithCategory[] }) {
   if (Platform.OS !== "web") return null;
   return (
@@ -34,7 +28,7 @@ export function ExportCsvButton({ items }: { items: ItemWithCategory[] }) {
       className="rounded-xl border border-edge bg-card px-3 py-2.5 active:opacity-70"
       disabled={items.length === 0}
       onPress={() =>
-        downloadCsv(`hearth-items-${todayStamp()}.csv`, itemsToCsv(items))
+        downloadCsv(`hearth-items-${todayISO()}.csv`, itemsToCsv(items))
       }
     >
       <Text
