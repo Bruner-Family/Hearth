@@ -121,6 +121,53 @@ export const scheduleFormSchema = z
 
 export type ScheduleFormValues = z.infer<typeof scheduleFormSchema>;
 
+const optionalUrl = z
+  .string()
+  .trim()
+  .url("Enter a valid URL")
+  .optional()
+  .or(z.literal(""));
+
+export const notificationSettingsFormSchema = z
+  .object({
+    enabled: z.boolean(),
+    discord_webhook_url: optionalUrl,
+    telegram_bot_token: z.string().trim().max(200).optional().or(z.literal("")),
+    telegram_chat_id: z.string().trim().max(64).optional().or(z.literal("")),
+    lead_time_days: z
+      .string()
+      .regex(/^\d{1,3}$/, "Days, e.g. 14")
+      .optional()
+      .or(z.literal("")),
+  })
+  .superRefine((v, ctx) => {
+    const days = Number(v.lead_time_days);
+    if (!v.lead_time_days || days < 1 || days > 90) {
+      ctx.addIssue({ code: "custom", path: ["lead_time_days"], message: "Between 1 and 90 days" });
+    }
+    const hasTelegram = !!v.telegram_bot_token || !!v.telegram_chat_id;
+    if (hasTelegram && !(v.telegram_bot_token && v.telegram_chat_id)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["telegram_chat_id"],
+        message: "Telegram needs both a bot token and a chat ID",
+      });
+    }
+    if (v.enabled) {
+      const hasDiscord = !!v.discord_webhook_url;
+      const hasFullTelegram = !!v.telegram_bot_token && !!v.telegram_chat_id;
+      if (!hasDiscord && !hasFullTelegram) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["discord_webhook_url"],
+          message: "Add at least one channel, or turn notifications off",
+        });
+      }
+    }
+  });
+
+export type NotificationSettingsFormValues = z.infer<typeof notificationSettingsFormSchema>;
+
 export const inviteFormSchema = z.object({
   email: z.email("Enter a valid email address"),
 });
