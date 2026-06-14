@@ -43,4 +43,19 @@ describe("itemsToCsv", () => {
     expect(line).toContain('"Sofa, ""big"""'); // comma + escaped quotes
     expect(line).toContain('"Living\nroom"'); // embedded newline
   });
+
+  it("neutralizes formula-injection leading characters", () => {
+    const item = makeItem({
+      name: "=1+1",
+      brand: "+danger",
+      model: "-cmd",
+      serial_number: "@SUM(A1)",
+    });
+    const line = itemsToCsv([item], now).split("\r\n")[1];
+    // Each formula-triggering field is prefixed with a single quote.
+    expect(line).toContain("'=1+1");
+    expect(line).toContain("'+danger");
+    expect(line).toContain("'-cmd");
+    expect(line).toContain("'@SUM(A1)");
+  });
 });

@@ -29,12 +29,23 @@ const COLUMNS: Column[] = [
   { header: "Notes", value: (i) => i.notes ?? "" },
 ];
 
-/** RFC-4180-style escape: quote when the field contains "," '"' or a newline. */
+/**
+ * Escape a field for CSV. Two concerns:
+ *  1. Formula injection — a value starting with =, +, -, @, tab, or CR can be
+ *     executed as a formula when the file is opened in Excel/Sheets. Prefix
+ *     such values with a single quote so they're treated as text.
+ *  2. RFC-4180 quoting — wrap in double quotes (doubling any internal quote)
+ *     when the value contains a comma, quote, or newline.
+ */
 function escapeField(value: string): string {
-  if (/[",\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+  let v = value;
+  if (/^[=+\-@\t\r]/.test(v)) {
+    v = `'${v}`;
   }
-  return value;
+  if (/[",\n\r]/.test(v)) {
+    return `"${v.replace(/"/g, '""')}"`;
+  }
+  return v;
 }
 
 /**
