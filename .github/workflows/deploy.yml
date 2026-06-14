@@ -82,7 +82,8 @@ jobs:
         with:
           deno-version: v2.x
       - name: Type-check edge functions
-        run: deno check supabase/functions/notify/index.ts
+        run: deno check index.ts
+        working-directory: supabase/functions/notify
 
   migrate:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
