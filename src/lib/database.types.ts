@@ -78,6 +78,17 @@ export type MaintenanceSchedule = {
   updated_at: string;
 };
 
+export type NotificationSettings = {
+  household_id: string;
+  enabled: boolean;
+  discord_webhook_url: string | null;
+  telegram_bot_token: string | null;
+  telegram_chat_id: string | null;
+  lead_time_days: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Attachment = {
   id: string;
   item_id: string;
@@ -129,6 +140,11 @@ export type Database = {
         MaintenanceSchedule,
         "household_id" | "name" | "next_due",
         "id" | "created_at" | "updated_at"
+      >;
+      notification_settings: TableOf<
+        NotificationSettings,
+        "household_id",
+        "created_at" | "updated_at"
       >;
       attachments: TableOf<
         Attachment,

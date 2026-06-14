@@ -19,6 +19,10 @@ Architecture is documented in
   system with a manual override.
 - Hosted from a **GCS bucket** behind **Cloudflare**, deployed by GitHub
   Actions.
+- **Notifications** are a weekly maintenance digest, sent by a pg_cron-scheduled
+  Supabase Edge Function ([`supabase/functions/notify`](supabase/functions/notify))
+  to Discord/Telegram, configured per-household in Settings. Secrets and cron
+  setup are in [SETUP.md](docs/SETUP.md).
 
 ## Development
 

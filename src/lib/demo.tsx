@@ -542,6 +542,8 @@ export const demoDb = {
     );
   },
 
+  notificationSettings: () => null,
+
   members: (): HouseholdMember[] => [
     {
       household_id: DEMO_HOUSEHOLD.id,

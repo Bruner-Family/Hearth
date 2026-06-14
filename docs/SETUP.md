@@ -130,6 +130,44 @@ supabase db start
 supabase test db
 ```
 
+## 8. Notifications (v1.3)
+
+Weekly maintenance digest, delivered by the `notify` Edge Function on a
+pg_cron schedule. Background: [ADR-003](adrs/ADR-003-notifications.md).
+
+1. Set the Edge Function secret:
+
+   ```sh
+   supabase secrets set CRON_SECRET=$(openssl rand -hex 32)
+   ```
+
+   Note the generated value down — it's needed again in step 2 and step 4.
+
+2. Add the Vault secrets the cron job reads (Dashboard → Project Settings →
+   Vault, or SQL editor):
+
+   ```sql
+   select vault.create_secret('https://<ref>.supabase.co', 'project_url');
+   select vault.create_secret('<the CRON_SECRET value>', 'cron_secret');
+   ```
+
+3. Run [`supabase/cron/weekly-notifications.sql`](../supabase/cron/weekly-notifications.sql)
+   once in the SQL editor. This enables `pg_cron`/`pg_net` and schedules the
+   weekly job (Mondays 13:00 UTC).
+
+4. Verify the function responds:
+
+   ```sh
+   curl -X POST https://<ref>.supabase.co/functions/v1/notify \
+     -H "x-cron-secret: <value>"
+   ```
+
+   Expect `{"ok":true,...}`.
+
+5. Per-household config — webhook URLs, Telegram bot token/chat ID, lead
+   time — is entered in the app under **Settings → Notifications** (owner
+   only).
+
 ## Smoke test
 
 After everything above: open `https://home.bruner.family`, sign in with a

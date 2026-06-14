@@ -93,22 +93,30 @@ and checking one off takes a single tap plus an optional cost.
 
 **Theme:** the due list reaches you without opening the app.
 
-- **Mechanism:** daily pg_cron-scheduled Supabase **Edge Function** reads
-  the same due/upcoming data the Home tab shows (schedules, end-of-life
-  warnings, expiring warranties) and fans out per household.
-- **Channels:**
-  - **Email digest** via Resend (free tier is ample at this scale).
-  - **Discord and/or Telegram webhooks** — a single HTTP POST each; n8n is
-    not required (can be slotted in later as just another webhook URL).
-- **Settings:** per-household `notification_settings` table — email on/off,
-  webhook URLs, lead-time days. Secrets (Resend API key) live in Supabase
-  Edge Function secrets.
+- **Mechanism:** a **weekly** pg_cron-scheduled Supabase **Edge Function**
+  reads the same due/upcoming data the Home tab shows (schedules,
+  end-of-life warnings, expiring warranties) — derived in one shared SQL
+  function so the server path uses the same rules, not a copy — and fans out
+  per household. (Revised 2026-06-13 from "daily": most signals are standing
+  conditions, so a weekly digest is quieter without a per-item sent-ledger;
+  see §4.)
+- **Channels (v1.3):** **Discord and/or Telegram webhooks** — a single HTTP
+  POST each; n8n is not required (can be slotted in later as just another
+  webhook URL).
+- **Email digest via Resend — deferred.** It needs a verified sending domain
+  and an API key; webhooks are a single POST with no external account, so
+  v1.3 ships webhook-only and email slots in later as another channel on the
+  same `notification_settings` row.
+- **Settings:** per-household `notification_settings` table — enabled on/off,
+  Discord/Telegram webhook config, lead-time days. Cron/Edge secrets live in
+  Supabase Edge Function secrets + Vault (no Resend key in v1.3).
 - **Quiet by design:** nothing due → nothing sent.
 
-**Not in v1.3:** PWA web push (revisit if email/webhooks prove
-insufficient), per-user notification preferences.
+**Not in v1.3:** email/Resend (deferred, above); a daily cadence + a
+`notifications_sent` ledger (an additive future upgrade if weekly proves too
+noisy); PWA web push; per-user notification preferences.
 
-**Done when:** a filter coming due produces a Discord ping and an email
+**Done when:** a filter coming due produces a Discord (or Telegram) ping
 without Colin having opened Hearth that week.
 
 ### v1.4 — Find & Filter
@@ -165,6 +173,8 @@ from there.
 | Checklists model | Schedules with season anchors | Separate checklist system |
 | Search | Client-side over cached data | Postgres full-text/trigram |
 | Document attachments → v1.5 (2026-06-13) | "At the Appliance" — reference material in hand at the equipment | v1.4, whose theme names "manual" retrieval; a standalone quick win |
+| v1.3 cadence (2026-06-13) | Weekly digest, no sent-ledger | Daily + per-item `notifications_sent` ledger (deferred as an additive upgrade); daily with no dedup (too noisy) |
+| v1.3 channels (2026-06-13) | Webhook-only first (Discord/Telegram) | Email + webhooks together (Resend needs domain verification — deferred); webhooks are a no-account single POST |
 
 Declined for now: faster-capture flow (photo-first add) — entry speed was
 not the limiting pain.
