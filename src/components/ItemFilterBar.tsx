@@ -76,6 +76,7 @@ export function ItemFilterBar({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Toggle filters"
+          accessibilityState={{ expanded: open }}
           className={`flex-row items-center gap-1.5 rounded-xl border px-3 py-2.5 active:opacity-70 ${
             count > 0 ? "border-accent bg-accent" : "border-edge bg-card"
           }`}
@@ -95,6 +96,7 @@ export function ItemFilterBar({
         {count > 0 ? (
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Clear all filters"
             className="px-2 py-2 active:opacity-60"
             onPress={() =>
               onChange({ categoryIds: [], locations: [], ageBands: [] })
@@ -107,21 +109,23 @@ export function ItemFilterBar({
 
       {open ? (
         <View className="mt-3 gap-3 rounded-xl border border-edge bg-card p-3">
-          <FilterGroup title="Category">
-            {shownCategories.map((c) => (
-              <Chip
-                key={c.id}
-                label={`${c.icon} ${c.name}`}
-                selected={filters.categoryIds.includes(c.id)}
-                onPress={() =>
-                  onChange({
-                    ...filters,
-                    categoryIds: toggle(filters.categoryIds, c.id),
-                  })
-                }
-              />
-            ))}
-          </FilterGroup>
+          {shownCategories.length > 0 ? (
+            <FilterGroup title="Category">
+              {shownCategories.map((c) => (
+                <Chip
+                  key={c.id}
+                  label={`${c.icon} ${c.name}`}
+                  selected={filters.categoryIds.includes(c.id)}
+                  onPress={() =>
+                    onChange({
+                      ...filters,
+                      categoryIds: toggle(filters.categoryIds, c.id),
+                    })
+                  }
+                />
+              ))}
+            </FilterGroup>
+          ) : null}
 
           {locations.length > 0 ? (
             <FilterGroup title="Location">
