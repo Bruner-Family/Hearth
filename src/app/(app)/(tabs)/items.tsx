@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { FlatList, Platform, Pressable, Text, useWindowDimensions, View } from "react-native";
 
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { ItemFilterBar } from "@/components/ItemFilterBar";
 import { ItemsTable } from "@/components/ItemsTable";
 import { LifespanBar } from "@/components/LifespanBar";
@@ -73,31 +74,34 @@ export default function ItemsScreen() {
             <View />
           )}
           {canTable ? (
-            <View className="flex-row gap-1 rounded-xl border border-edge bg-card p-1">
-              {(["cards", "table"] as const).map((mode) => {
-                const selected = view === mode;
-                return (
-                  <Pressable
-                    key={mode}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    className={`rounded-lg px-3 py-1.5 active:opacity-70 ${
-                      selected ? "bg-accent" : ""
-                    }`}
-                    onPress={() => setView(mode)}
-                  >
-                    <Text
-                      className={`text-sm ${
-                        selected
-                          ? "font-semibold text-on-accent"
-                          : "text-ink-dim"
+            <View className="flex-row items-center gap-2">
+              <ExportCsvButton items={visible} />
+              <View className="flex-row gap-1 rounded-xl border border-edge bg-card p-1">
+                {(["cards", "table"] as const).map((mode) => {
+                  const selected = view === mode;
+                  return (
+                    <Pressable
+                      key={mode}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      className={`rounded-lg px-3 py-1.5 active:opacity-70 ${
+                        selected ? "bg-accent" : ""
                       }`}
+                      onPress={() => setView(mode)}
                     >
-                      {mode === "cards" ? "Cards" : "Table"}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <Text
+                        className={`text-sm ${
+                          selected
+                            ? "font-semibold text-on-accent"
+                            : "text-ink-dim"
+                        }`}
+                      >
+                        {mode === "cards" ? "Cards" : "Table"}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           ) : null}
         </View>
