@@ -27,7 +27,7 @@ export function SearchBar({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Clear search"
-          className="h-8 w-8 items-center justify-center rounded-full active:opacity-60"
+          className="h-12 w-12 items-center justify-center rounded-full active:opacity-60"
           onPress={() => onChange("")}
         >
           <Text className="text-lg text-ink-dim">✕</Text>
