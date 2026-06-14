@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
+import { NotificationsCard } from "@/components/NotificationsCard";
 import { Button, Card, ErrorNote, Field, SectionTitle } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useDemo } from "@/lib/demo";
@@ -32,6 +33,9 @@ export default function SettingsScreen() {
 
       <SectionTitle>Appearance</SectionTitle>
       <AppearanceCard />
+
+      <SectionTitle>Notifications</SectionTitle>
+      <NotificationsCard />
 
       <SectionTitle>Household</SectionTitle>
       <Card>
