@@ -1,7 +1,7 @@
 import type { ItemWithCategory } from "@/lib/database.types";
 import { lifespanStatus } from "@/lib/lifespan";
 
-export type SortKey = "name" | "category" | "location" | "age" | "price";
+export type SortKey = "name" | "category" | "location" | "age" | "price" | "purchase";
 export type SortDir = "asc" | "desc";
 
 /** Comparable value for a column; null sorts last regardless of direction. */
@@ -21,6 +21,8 @@ function sortValue(
       return lifespanStatus(item, now).ageYears;
     case "price":
       return item.price_cents;
+    case "purchase":
+      return item.purchase_date; // ISO YYYY-MM-DD sorts lexically = chronologically
   }
 }
 

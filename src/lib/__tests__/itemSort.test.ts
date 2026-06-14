@@ -85,6 +85,14 @@ describe("sortItems", () => {
     ]);
   });
 
+  it("sorts by purchase date chronologically, nulls last", () => {
+    expect(sortItems(items, "purchase", "asc", now).map((i) => i.id)).toEqual([
+      "a", // 2014
+      "b", // 2022
+      "z", // null
+    ]);
+  });
+
   it("does not mutate the input array", () => {
     const input = [...items];
     sortItems(input, "name", "asc", now);
