@@ -24,7 +24,7 @@ export default function ItemsScreen() {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ItemFilters>(EMPTY_FILTERS);
 
-  // One "now" per render session keeps age-band/lifespan math stable.
+  // One "now" per mount keeps age-band/lifespan math stable across renders.
   const now = useMemo(() => new Date(), []);
   const all = useMemo(() => items ?? [], [items]);
   const visible = useMemo(() => {
@@ -34,7 +34,9 @@ export default function ItemsScreen() {
 
   if (householdLoading || isLoading) return <Loading />;
 
-  const filtering = query.trim().length > 0 || visible.length !== all.length;
+  // Key the "X of N" line on the outcome: if nothing was narrowed (even with an
+  // active query that matched everything), just show the plain total.
+  const filtering = visible.length !== all.length;
 
   return (
     <View className="flex-1 bg-bg">
