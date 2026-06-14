@@ -23,6 +23,10 @@ Architecture is documented in
   Supabase Edge Function ([`supabase/functions/notify`](supabase/functions/notify))
   to Discord/Telegram, configured per-household in Settings. Secrets and cron
   setup are in [SETUP.md](docs/SETUP.md).
+- **Find & filter** (v1.4): fuzzy search across name, brand, model, serial,
+  location, and notes; filter by category, location, and lifespan age band; on
+  laptop, a sortable table view and one-click CSV export of what you're
+  viewing.
 
 ## Development
 

@@ -175,6 +175,9 @@ from there.
 | Document attachments → v1.5 (2026-06-13) | "At the Appliance" — reference material in hand at the equipment | v1.4, whose theme names "manual" retrieval; a standalone quick win |
 | v1.3 cadence (2026-06-13) | Weekly digest, no sent-ledger | Daily + per-item `notifications_sent` ledger (deferred as an additive upgrade); daily with no dedup (too noisy) |
 | v1.3 channels (2026-06-13) | Webhook-only first (Discord/Telegram) | Email + webhooks together (Resend needs domain verification — deferred); webhooks are a no-account single POST |
+| v1.4 search (2026-06-14) | Fuse.js fuzzy, multi-term AND, ranked | Hand-rolled substring matcher (no typo tolerance) |
+| v1.4 age bands (2026-06-14) | Lifespan status (Healthy/Aging/Near-EOL/Unknown), reusing the 0.7/0.9 thresholds | Fixed year buckets (ignores expected lifespan) |
+| v1.4 table & CSV (2026-06-14) | Web/laptop-only (≥768px); CSV exports the visible (searched+filtered) set | Table on phone too; export-all regardless of filters |
 
 Declined for now: faster-capture flow (photo-first add) — entry speed was
 not the limiting pain.
