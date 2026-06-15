@@ -55,4 +55,18 @@ describe("searchItems", () => {
     // a term that matches nothing eliminates the item
     expect(searchItems(items, "rheem kitchen")).toEqual([]);
   });
+
+  it("matches on reference detail labels and values", () => {
+    const withRef = makeItem({
+      id: "withRef",
+      name: "Air handler",
+      reference_details: [
+        { label: "Filter", value: "16×25×1" },
+        { label: "Belt", value: "A1234" },
+      ],
+    });
+    const pool = [withRef, fridge];
+    expect(searchItems(pool, "16×25").map((i) => i.id)).toEqual(["withRef"]);
+    expect(searchItems(pool, "belt").map((i) => i.id)).toEqual(["withRef"]);
+  });
 });
