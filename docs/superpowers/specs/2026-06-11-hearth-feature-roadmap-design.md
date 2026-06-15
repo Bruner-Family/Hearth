@@ -178,6 +178,7 @@ from there.
 | v1.4 search (2026-06-14) | Fuse.js fuzzy, multi-term AND, ranked | Hand-rolled substring matcher (no typo tolerance) |
 | v1.4 age bands (2026-06-14) | Lifespan status (Healthy/Aging/Near-EOL/Unknown), reusing the 0.7/0.9 thresholds | Fixed year buckets (ignores expected lifespan) |
 | v1.4 table & CSV (2026-06-14) | Web/laptop-only (≥768px); CSV exports the visible (searched+filtered) set | Table on phone too; export-all regardless of filters |
+| v1.5 reference details (2026-06-14) | Ordered `{label,value}` JSONB array on `items`, searchable; blank rows dropped on save | Object map (loses order); separate table + RLS (overkill for a handful of pairs) |
 
 Declined for now: faster-capture flow (photo-first add) — entry speed was
 not the limiting pain.
