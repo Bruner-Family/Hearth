@@ -27,6 +27,9 @@ export type ItemCategory = {
   sort_order: number;
 };
 
+/** One reference pair, e.g. { label: "Filter", value: "16×25×1" } (spec v1.5). */
+export type ReferenceDetail = { label: string; value: string };
+
 export type Item = {
   id: string;
   household_id: string;
@@ -43,6 +46,7 @@ export type Item = {
   warranty_until: string | null;
   lifespan_years_override: number | null;
   notes: string | null;
+  reference_details: ReferenceDetail[];
   created_by: string;
   created_at: string;
   updated_at: string;
