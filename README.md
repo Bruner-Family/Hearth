@@ -27,6 +27,9 @@ Architecture is documented in
   location, and notes; filter by category, location, and lifespan age band; on
   laptop, a sortable table view and one-click CSV export of what you're
   viewing.
+- **Reference details** (v1.5): a per-item key-value list (filter size, bulb
+  type, paint code) shown on the item page and matched by search — the specs you
+  need standing at the appliance.
 
 ## Development
 

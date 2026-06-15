@@ -53,6 +53,14 @@ export const itemFormSchema = z
       .optional()
       .or(z.literal("")),
     notes: z.string().trim().max(2000).optional().or(z.literal("")),
+    reference_details: z
+      .array(
+        z.object({
+          label: z.string().trim().max(100),
+          value: z.string().trim().max(500),
+        }),
+      )
+      .max(30),
   })
   .superRefine((values, ctx) => {
     if (!values.purchase_day) return;

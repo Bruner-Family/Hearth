@@ -172,6 +172,7 @@ function seedItem(
     warranty_until: null,
     lifespan_years_override: null,
     notes: null,
+    reference_details: [],
     created_by: DEMO_USER_ID,
     created_at: createdAt,
     updated_at: createdAt,
@@ -235,6 +236,10 @@ function seed(): {
       brand: "Rheem",
       model: "XG50T",
       notes: "50-gallon natural gas. Shut-off valve is on the left.",
+      reference_details: [
+        { label: "Anode rod", value: '3/4" hex, magnesium' },
+        { label: "T&P valve", value: "3/4 in." },
+      ],
     }),
     seedItem(2, "demo-cat-garage", "Garage door opener", 138, {
       location: "Garage",
@@ -406,6 +411,7 @@ export const demoDb = {
       warranty_until: values.warranty_until ?? null,
       lifespan_years_override: values.lifespan_years_override ?? null,
       notes: values.notes ?? null,
+      reference_details: values.reference_details ?? [],
       created_by: DEMO_USER_ID,
       created_at: now,
       updated_at: now,

@@ -3,6 +3,7 @@ import { Controller, useForm } from "react-hook-form";
 import { Pressable, Text, View } from "react-native";
 
 import { DateField } from "@/components/DateField";
+import { ReferenceDetailsField } from "@/components/ReferenceDetailsField";
 import { Button, ErrorNote, Field, SectionTitle } from "@/components/ui";
 import type { Database, ItemWithCategory } from "@/lib/database.types";
 import {
@@ -11,6 +12,7 @@ import {
   splitPurchaseDate,
 } from "@/lib/format";
 import { useCategories } from "@/lib/queries";
+import { cleanReferenceDetails } from "@/lib/referenceDetails";
 import { itemFormSchema, type ItemFormValues } from "@/lib/schemas";
 
 type ItemInsert = Database["public"]["Tables"]["items"]["Insert"];
@@ -62,6 +64,7 @@ export function ItemForm({
           ? String(initial.lifespan_years_override)
           : "",
       notes: initial?.notes ?? "",
+      reference_details: initial?.reference_details ?? [],
     },
   });
 
@@ -81,6 +84,7 @@ export function ItemForm({
         ? Number(values.lifespan_years_override)
         : null,
       notes: empty(values.notes),
+      reference_details: cleanReferenceDetails(values.reference_details),
     });
   });
 
@@ -307,6 +311,8 @@ export function ItemForm({
           />
         </View>
       </View>
+
+      <ReferenceDetailsField control={control} />
 
       <Controller
         control={control}

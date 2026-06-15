@@ -12,6 +12,14 @@ const FUSE_OPTIONS: IFuseOptions<ItemWithCategory> = {
     { name: "serial_number", weight: 2 },
     { name: "location", weight: 1 },
     { name: "notes", weight: 1 },
+    {
+      // Index both labels and values of the reference-detail pairs (spec v1.5).
+      // A getFn returns the searchable strings since there's no single field path.
+      name: "referenceDetails",
+      weight: 1,
+      getFn: (item) =>
+        (item.reference_details ?? []).flatMap((p) => [p.label, p.value]),
+    },
   ],
   // 0 = exact, 1 = match anything. 0.3 tolerates typos ("watr"→"Water heater")
   // without short-query false positives ("water"→"Refrigerator", which slips in
