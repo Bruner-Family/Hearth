@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { scheduleFormSchema } from "@/lib/schemas";
+import { itemFormSchema, scheduleFormSchema } from "@/lib/schemas";
 
 const base = {
   name: "Replace filter",
@@ -48,5 +48,44 @@ describe("scheduleFormSchema", () => {
 
   it("requires a name", () => {
     expect(scheduleFormSchema.safeParse({ ...base, name: " " }).success).toBe(false);
+  });
+});
+
+const baseItem = {
+  name: "Furnace",
+  category_id: "00000000-0000-4000-8000-000000000000",
+  location: "",
+  purchase_month: "",
+  purchase_day: "",
+  price: "",
+  vendor: "",
+  brand: "",
+  model: "",
+  serial_number: "",
+  warranty_until: "",
+  lifespan_years_override: "",
+  notes: "",
+  reference_details: [] as { label: string; value: string }[],
+};
+
+describe("itemFormSchema reference_details", () => {
+  it("accepts an empty list", () => {
+    expect(itemFormSchema.safeParse(baseItem).success).toBe(true);
+  });
+
+  it("accepts valid pairs", () => {
+    const result = itemFormSchema.safeParse({
+      ...baseItem,
+      reference_details: [{ label: "Filter", value: "16×25×1" }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a label over 100 characters", () => {
+    const result = itemFormSchema.safeParse({
+      ...baseItem,
+      reference_details: [{ label: "x".repeat(101), value: "v" }],
+    });
+    expect(result.success).toBe(false);
   });
 });
