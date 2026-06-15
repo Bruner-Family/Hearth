@@ -236,6 +236,10 @@ function seed(): {
       brand: "Rheem",
       model: "XG50T",
       notes: "50-gallon natural gas. Shut-off valve is on the left.",
+      reference_details: [
+        { label: "Anode rod", value: '3/4" hex, magnesium' },
+        { label: "T&P valve", value: "3/4 in." },
+      ],
     }),
     seedItem(2, "demo-cat-garage", "Garage door opener", 138, {
       location: "Garage",
