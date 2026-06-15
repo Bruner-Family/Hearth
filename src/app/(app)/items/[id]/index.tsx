@@ -10,6 +10,7 @@ import {
 
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { LifespanBar } from "@/components/LifespanBar";
+import { ReferenceDetailsCard } from "@/components/ReferenceDetailsCard";
 import { ScheduleSection } from "@/components/ScheduleSection";
 import { Button, Card, Loading, SectionTitle } from "@/components/ui";
 import type { MaintenanceLog } from "@/lib/database.types";
@@ -130,6 +131,10 @@ export default function ItemDetailScreen() {
           </View>
         ) : null}
       </Card>
+
+      {item.reference_details.length > 0 ? (
+        <ReferenceDetailsCard details={item.reference_details} />
+      ) : null}
 
       <ScheduleSection itemId={item.id} />
 
