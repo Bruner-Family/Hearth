@@ -179,7 +179,7 @@ from there.
 | v1.4 age bands (2026-06-14) | Lifespan status (Healthy/Aging/Near-EOL/Unknown), reusing the 0.7/0.9 thresholds | Fixed year buckets (ignores expected lifespan) |
 | v1.4 table & CSV (2026-06-14) | Web/laptop-only (≥768px); CSV exports the visible (searched+filtered) set | Table on phone too; export-all regardless of filters |
 | v1.5 reference details (2026-06-14) | Ordered `{label,value}` JSONB array on `items`, searchable; blank rows dropped on save | Object map (loses order); separate table + RLS (overkill for a handful of pairs) |
-| v1.5 custom emoji for "Other" items (2026-06-15) | Picking "Other" category reveals a curated emoji grid + free-entry field; choice stored in nullable `items.icon`, overrides 📦 default on list, detail, and weekly digest | Always showing the picker (noisy for non-Other items); storing a text label instead of an emoji |
+| Custom emoji for "Other" items — incremental (2026-06-15) | Picking "Other" category reveals a curated emoji grid + free-entry field; choice stored in nullable `items.icon`, overrides 📦 default on list, detail, and weekly digest | Always showing the picker (noisy for non-Other items); storing a text label instead of an emoji |
 
 Declined for now: faster-capture flow (photo-first add) — entry speed was
 not the limiting pain.

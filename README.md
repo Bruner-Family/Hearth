@@ -30,7 +30,7 @@ Architecture is documented in
 - **Reference details** (v1.5): a per-item key-value list (filter size, bulb
   type, paint code) shown on the item page and matched by search — the specs you
   need standing at the appliance.
-- **Custom emoji for "Other" items** (v1.5): picking the "Other" category
+- **Custom emoji for "Other" items** (incremental): picking the "Other" category
   reveals a curated emoji grid plus a free-entry field; the chosen emoji is
   stored in `items.icon` and overrides the 📦 default on the item list, detail
   screen, and weekly notification digest.
