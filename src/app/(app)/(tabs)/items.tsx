@@ -9,7 +9,7 @@ import { LifespanBar } from "@/components/LifespanBar";
 import { SearchBar } from "@/components/SearchBar";
 import { EmptyState, Loading } from "@/components/ui";
 import type { ItemWithCategory } from "@/lib/database.types";
-import { formatMonthYear } from "@/lib/format";
+import { formatMonthYear, itemIcon } from "@/lib/format";
 import { useHousehold } from "@/lib/household";
 import { EMPTY_FILTERS, filterItems, type ItemFilters } from "@/lib/itemFilters";
 import { sortItems, type SortDir, type SortKey } from "@/lib/itemSort";
@@ -168,7 +168,7 @@ function ItemCard({ item }: { item: ItemWithCategory }) {
       onPress={() => router.push(`/items/${item.id}`)}
     >
       <View className="flex-row items-center gap-3">
-        <Text className="text-3xl">{item.category.icon}</Text>
+        <Text className="text-3xl">{itemIcon(item)}</Text>
         <View className="flex-1">
           <Text className="text-base font-semibold text-ink" numberOfLines={1}>
             {item.name}

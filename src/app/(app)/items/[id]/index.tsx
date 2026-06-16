@@ -14,7 +14,7 @@ import { ReferenceDetailsCard } from "@/components/ReferenceDetailsCard";
 import { ScheduleSection } from "@/components/ScheduleSection";
 import { Button, Card, Loading, SectionTitle } from "@/components/ui";
 import type { MaintenanceLog } from "@/lib/database.types";
-import { formatCents, formatDate, formatPurchaseDate } from "@/lib/format";
+import { formatCents, formatDate, formatPurchaseDate, itemIcon } from "@/lib/format";
 import { formatYears, lifespanStatus } from "@/lib/lifespan";
 import { useDeleteItem, useDeleteLog, useItem, useLogs } from "@/lib/queries";
 import { usePalette } from "@/lib/theme";
@@ -75,7 +75,7 @@ export default function ItemDetailScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: item.name,
+          title: `${itemIcon(item)} ${item.name}`,
           headerStyle: { backgroundColor: palette.bg },
           headerTintColor: palette.ink,
           headerShadowVisible: false,

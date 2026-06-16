@@ -7,7 +7,7 @@ import type {
   ReplacementYear,
   YearSpend,
 } from "@/lib/dashboard";
-import { formatCents, formatDate } from "@/lib/format";
+import { formatCents, formatDate, itemIcon } from "@/lib/format";
 import type { HouseholdLog, ScheduleWithItem } from "@/lib/queries";
 import { formatDueness, type TaskEntry } from "@/lib/schedule";
 
@@ -99,7 +99,7 @@ export function NeedsAttentionCard({
                 }`}
               />
               <Text className="flex-1 text-sm text-ink" numberOfLines={1}>
-                {item.category.icon} {item.name}
+                {itemIcon(item)} {item.name}
               </Text>
               <Text className="text-xs text-ink-dim">{detail}</Text>
             </Pressable>
@@ -121,7 +121,7 @@ export function NextFiveYearsCard({ years }: { years: ReplacementYear[] }) {
           <View key={year} className="flex-row items-baseline gap-2 py-1.5">
             <Text className="w-12 text-sm font-semibold text-ink">{year}</Text>
             <Text className="flex-1 text-sm text-ink-dim" numberOfLines={2}>
-              {items.map((i) => `${i.category.icon} ${i.name}`).join("  ")}
+              {items.map((i) => `${itemIcon(i)} ${i.name}`).join("  ")}
             </Text>
             {totalCents > 0 ? (
               <Text className="text-sm text-ink">~{formatCents(totalCents)}</Text>

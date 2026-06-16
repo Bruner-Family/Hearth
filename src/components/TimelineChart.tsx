@@ -4,6 +4,7 @@ import { Pressable, Text, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 
 import type { ItemWithCategory } from "@/lib/database.types";
+import { itemIcon } from "@/lib/format";
 import { lifespanBand, lifespanStatus, type LifespanStatus } from "@/lib/lifespan";
 import { usePalette } from "@/lib/theme";
 
@@ -80,7 +81,7 @@ export function TimelineChart({ items }: { items: ItemWithCategory[] }) {
           >
             <View className="flex-row items-baseline justify-between">
               <Text className="text-sm font-medium text-ink" numberOfLines={1}>
-                {item.category.icon} {item.name}
+                {itemIcon(item)} {item.name}
               </Text>
               <Text className="text-xs text-ink-dim">
                 {replacementLabel(status)}

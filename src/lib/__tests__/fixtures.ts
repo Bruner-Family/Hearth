@@ -16,6 +16,7 @@ export function makeItem(overrides: Partial<ItemWithCategory> = {}): ItemWithCat
     serial_number: null,
     warranty_until: null,
     lifespan_years_override: null,
+    icon: null,
     notes: null,
     reference_details: [],
     created_by: "u1",

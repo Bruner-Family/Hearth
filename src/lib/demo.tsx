@@ -171,6 +171,7 @@ function seedItem(
     serial_number: null,
     warranty_until: null,
     lifespan_years_override: null,
+    icon: null,
     notes: null,
     reference_details: [],
     created_by: DEMO_USER_ID,
@@ -297,6 +298,11 @@ function seed(): {
       model: "LFXS26973S",
       warranty_until: isoMonthsAgo(26 - 24),
     }),
+    seedItem(11, "demo-cat-other", "Patio heater", 36, {
+      location: "Back patio",
+      price_cents: 24_900,
+      icon: "🔥",
+    }),
   ];
 
   const logs = [
@@ -410,6 +416,7 @@ export const demoDb = {
       serial_number: values.serial_number ?? null,
       warranty_until: values.warranty_until ?? null,
       lifespan_years_override: values.lifespan_years_override ?? null,
+      icon: values.icon ?? null,
       notes: values.notes ?? null,
       reference_details: values.reference_details ?? [],
       created_by: DEMO_USER_ID,

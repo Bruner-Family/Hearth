@@ -45,6 +45,7 @@ export type Item = {
   serial_number: string | null;
   warranty_until: string | null;
   lifespan_years_override: number | null;
+  icon: string | null;
   notes: string | null;
   reference_details: ReferenceDetail[];
   created_by: string;

@@ -3,6 +3,7 @@ import { Controller, useForm } from "react-hook-form";
 import { Pressable, Text, View } from "react-native";
 
 import { DateField } from "@/components/DateField";
+import { EmojiPickerField } from "@/components/EmojiPickerField";
 import { ReferenceDetailsField } from "@/components/ReferenceDetailsField";
 import { Button, ErrorNote, Field, SectionTitle } from "@/components/ui";
 import type { Database, ItemWithCategory } from "@/lib/database.types";
@@ -41,6 +42,7 @@ export function ItemForm({
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<ItemFormValues>({
     resolver: zodResolver(itemFormSchema),
@@ -64,6 +66,7 @@ export function ItemForm({
           ? String(initial.lifespan_years_override)
           : "",
       notes: initial?.notes ?? "",
+      icon: initial?.icon ?? "",
       reference_details: initial?.reference_details ?? [],
     },
   });
@@ -84,6 +87,7 @@ export function ItemForm({
         ? Number(values.lifespan_years_override)
         : null,
       notes: empty(values.notes),
+      icon: empty(values.icon),
       reference_details: cleanReferenceDetails(values.reference_details),
     });
   });
@@ -129,7 +133,10 @@ export function ItemForm({
                         ? "border-accent bg-accent"
                         : "border-edge bg-card"
                     }`}
-                    onPress={() => onChange(cat.id)}
+                    onPress={() => {
+                      onChange(cat.id);
+                      if (cat.name !== "Other") setValue("icon", "");
+                    }}
                   >
                     <Text
                       className={`text-sm ${
@@ -152,6 +159,17 @@ export function ItemForm({
                 Suggested lifespan:{" "}
                 {selectedCategory(value)!.default_lifespan_years} years
               </Text>
+            ) : null}
+            {selectedCategory(value)?.name === "Other" ? (
+              <View className="mt-4">
+                <Controller
+                  control={control}
+                  name="icon"
+                  render={({ field: { onChange: onIconChange, value: iconValue } }) => (
+                    <EmojiPickerField value={iconValue ?? ""} onChange={onIconChange} />
+                  )}
+                />
+              </View>
             ) : null}
           </View>
         )}
