@@ -53,6 +53,7 @@ export const itemFormSchema = z
       .optional()
       .or(z.literal("")),
     notes: z.string().trim().max(2000).optional().or(z.literal("")),
+    icon: z.string().trim().max(32).optional().or(z.literal("")),
     reference_details: z
       .array(
         z.object({

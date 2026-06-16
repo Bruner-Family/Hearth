@@ -68,6 +68,21 @@ const baseItem = {
   reference_details: [] as { label: string; value: string }[],
 };
 
+describe("itemFormSchema icon", () => {
+  it("accepts a single emoji", () => {
+    expect(itemFormSchema.safeParse({ ...baseItem, icon: "🧯" }).success).toBe(true);
+  });
+
+  it("accepts a blank string", () => {
+    expect(itemFormSchema.safeParse({ ...baseItem, icon: "" }).success).toBe(true);
+  });
+
+  it("rejects a string over 32 characters", () => {
+    const result = itemFormSchema.safeParse({ ...baseItem, icon: "x".repeat(33) });
+    expect(result.success).toBe(false);
+  });
+});
+
 describe("itemFormSchema reference_details", () => {
   it("accepts an empty list", () => {
     expect(itemFormSchema.safeParse(baseItem).success).toBe(true);

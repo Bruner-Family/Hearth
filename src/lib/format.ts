@@ -95,3 +95,8 @@ export function todayISO(): string {
   const d = String(now.getDate()).padStart(2, "0");
   return `${now.getFullYear()}-${m}-${d}`;
 }
+
+/** Return the item's own icon when set, otherwise fall back to its category icon. */
+export function itemIcon(item: { icon: string | null; category: { icon: string } }): string {
+  return item.icon?.trim() || item.category.icon;
+}
