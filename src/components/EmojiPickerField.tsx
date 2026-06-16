@@ -11,6 +11,14 @@ const EMOJI_CHOICES: string[] = [
   "🚗", "🚲", "🛞", "📡", "🖥️", "🖨️",
 ];
 
+const chipClass = (selected: boolean) =>
+  `rounded-full border px-3 py-2 active:opacity-70 ${
+    selected ? "border-accent bg-accent" : "border-edge bg-card"
+  }`;
+
+const chipTextClass = (selected: boolean) =>
+  `text-lg ${selected ? "font-semibold text-on-accent" : "text-ink"}`;
+
 export function EmojiPickerField({
   value,
   onChange,
@@ -26,20 +34,10 @@ export function EmojiPickerField({
         {/* Default chip — clears back to category icon */}
         <Pressable
           accessibilityRole="button"
-          className={`rounded-full border px-3 py-2 active:opacity-70 ${
-            value === ""
-              ? "border-accent bg-accent"
-              : "border-edge bg-card"
-          }`}
+          className={chipClass(value === "")}
           onPress={() => onChange("")}
         >
-          <Text
-            className={`text-lg ${
-              value === "" ? "font-semibold text-on-accent" : "text-ink"
-            }`}
-          >
-            📦
-          </Text>
+          <Text className={chipTextClass(value === "")}>📦</Text>
         </Pressable>
 
         {EMOJI_CHOICES.map((emoji) => {
@@ -48,20 +46,10 @@ export function EmojiPickerField({
             <Pressable
               key={emoji}
               accessibilityRole="button"
-              className={`rounded-full border px-3 py-2 active:opacity-70 ${
-                selected
-                  ? "border-accent bg-accent"
-                  : "border-edge bg-card"
-              }`}
+              className={chipClass(selected)}
               onPress={() => onChange(emoji)}
             >
-              <Text
-                className={`text-lg ${
-                  selected ? "font-semibold text-on-accent" : "text-ink"
-                }`}
-              >
-                {emoji}
-              </Text>
+              <Text className={chipTextClass(selected)}>{emoji}</Text>
             </Pressable>
           );
         })}
