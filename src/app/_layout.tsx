@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
+import Head from "expo-router/head";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 
@@ -14,6 +15,9 @@ function RootStack() {
   const { scheme } = useTheme();
   return (
     <>
+      <Head>
+        <title>Hearth — home asset & maintenance tracker</title>
+      </Head>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="sign-in" />
