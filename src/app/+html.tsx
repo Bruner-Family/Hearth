@@ -12,7 +12,9 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
-        <title>Hearth — home asset & maintenance tracker</title>
+        {/* The document <title> is managed by expo-router/head (react-helmet)
+            in the root layout — see src/app/_layout.tsx. Setting it here too
+            produces a duplicate <title> that loses to helmet's tag. */}
         <meta
           name="description"
           content="Home asset & maintenance tracker for the household"
