@@ -91,18 +91,50 @@ describe("nextFiveYears", () => {
 });
 
 describe("spendThisYear", () => {
-  it("sums only the current year's logs into total and month buckets", () => {
+  it("sums only the current year's maintenance logs into total and month buckets", () => {
     const logs = [
       makeLog({ performed_on: "2026-03-10", cost_cents: 5000 }),
       makeLog({ id: "l2", performed_on: "2026-03-20", cost_cents: 2500 }),
       makeLog({ id: "l3", performed_on: "2026-05-01", cost_cents: null }),
       makeLog({ id: "l4", performed_on: "2025-12-31", cost_cents: 99900 }),
     ];
-    const spend = spendThisYear(logs, now);
-    expect(spend.totalCents).toBe(7500);
-    expect(spend.count).toBe(3);
-    expect(spend.byMonthCents[2]).toBe(7500); // March
-    expect(spend.byMonthCents[4]).toBe(0); // May log had no cost
-    expect(spend.byMonthCents).toHaveLength(12);
+    const { maintenance } = spendThisYear(logs, [], now);
+    expect(maintenance.totalCents).toBe(7500);
+    expect(maintenance.count).toBe(3);
+    expect(maintenance.byMonthCents[2]).toBe(7500); // March
+    expect(maintenance.byMonthCents[4]).toBe(0); // May log had no cost
+    expect(maintenance.byMonthCents).toHaveLength(12);
+  });
+
+  it("sums this year's purchases by price and month, excluding prior-year items", () => {
+    const items = [
+      makeItem({ id: "a", purchase_date: "2026-02-10", price_cents: 120000 }),
+      makeItem({ id: "b", purchase_date: "2026-02-25", price_cents: 30000 }),
+      makeItem({ id: "c", purchase_date: "2025-11-01", price_cents: 999900 }),
+    ];
+    const { purchase } = spendThisYear([], items, now);
+    expect(purchase.totalCents).toBe(150000);
+    expect(purchase.count).toBe(2);
+    expect(purchase.byMonthCents[1]).toBe(150000); // February
+    expect(purchase.byMonthCents).toHaveLength(12);
+  });
+
+  it("excludes items with no purchase_date or no price from purchase totals", () => {
+    const items = [
+      makeItem({ id: "a", purchase_date: null, price_cents: 50000 }),
+      makeItem({ id: "b", purchase_date: "2026-04-01", price_cents: null }),
+      makeItem({ id: "c", purchase_date: "2026-04-02", price_cents: 8000 }),
+    ];
+    const { purchase } = spendThisYear([], items, now);
+    expect(purchase.totalCents).toBe(8000);
+    expect(purchase.count).toBe(1);
+    expect(purchase.byMonthCents[3]).toBe(8000); // April
+  });
+
+  it("returns zeroed streams when there is no spend", () => {
+    const { purchase, maintenance } = spendThisYear([], [], now);
+    const zero = { totalCents: 0, count: 0, byMonthCents: Array(12).fill(0) };
+    expect(purchase).toEqual(zero);
+    expect(maintenance).toEqual(zero);
   });
 });

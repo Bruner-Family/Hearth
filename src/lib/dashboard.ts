@@ -94,27 +94,56 @@ export function nextFiveYears(
   return [...byYear.values()].sort((a, b) => a.year - b.year);
 }
 
-export type YearSpend = {
+export type SpendStream = {
   totalCents: number;
   count: number;
   /** Index 0 = January of the current year. */
   byMonthCents: number[];
 };
 
+export type YearSpend = {
+  purchase: SpendStream;
+  maintenance: SpendStream;
+};
+
+function emptyStream(): SpendStream {
+  return {
+    totalCents: 0,
+    count: 0,
+    byMonthCents: Array.from({ length: 12 }, () => 0),
+  };
+}
+
 export function spendThisYear(
   logs: MaintenanceLog[],
+  items: ItemWithCategory[],
   now: Date,
 ): YearSpend {
   const year = now.getFullYear();
-  const byMonthCents = Array.from({ length: 12 }, () => 0);
-  let totalCents = 0;
-  let count = 0;
+
+  const maintenance = emptyStream();
   for (const log of logs) {
     if (Number(log.performed_on.slice(0, 4)) !== year) continue;
-    count += 1;
+    maintenance.count += 1;
     const cents = log.cost_cents ?? 0;
-    totalCents += cents;
-    byMonthCents[Number(log.performed_on.slice(5, 7)) - 1] += cents;
+    maintenance.totalCents += cents;
+    maintenance.byMonthCents[Number(log.performed_on.slice(5, 7)) - 1] += cents;
   }
-  return { totalCents, count, byMonthCents };
+
+  // Acquisition spend: an item counts only when it was both purchased this
+  // year and has a price. Items missing either are absent from the totals
+  // (and the count), so backfilling old or price-less items never inflates
+  // the year.
+  const purchase = emptyStream();
+  for (const item of items) {
+    if (!item.purchase_date) continue;
+    if (Number(item.purchase_date.slice(0, 4)) !== year) continue;
+    if (item.price_cents == null) continue;
+    purchase.count += 1;
+    purchase.totalCents += item.price_cents;
+    purchase.byMonthCents[Number(item.purchase_date.slice(5, 7)) - 1] +=
+      item.price_cents;
+  }
+
+  return { purchase, maintenance };
 }

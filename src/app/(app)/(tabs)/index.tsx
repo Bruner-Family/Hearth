@@ -45,7 +45,7 @@ export default function HomeScreen() {
   const attention = needsAttention(items, now);
   const tasks = dueTasks(schedules, now);
   const years = nextFiveYears(items, now);
-  const spend = spendThisYear(logs, now);
+  const spend = spendThisYear(logs, items, now);
 
   return (
     <ScrollView
