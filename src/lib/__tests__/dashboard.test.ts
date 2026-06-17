@@ -137,4 +137,16 @@ describe("spendThisYear", () => {
     expect(purchase).toEqual(zero);
     expect(maintenance).toEqual(zero);
   });
+
+  it("keeps purchase and maintenance separate when both land in the same month", () => {
+    const logs = [makeLog({ performed_on: "2026-03-10", cost_cents: 3000 })];
+    const items = [
+      makeItem({ id: "a", purchase_date: "2026-03-05", price_cents: 50000 }),
+    ];
+    const { purchase, maintenance } = spendThisYear(logs, items, now);
+    expect(purchase.byMonthCents[2]).toBe(50000); // March
+    expect(maintenance.byMonthCents[2]).toBe(3000); // March
+    expect(purchase.totalCents).toBe(50000);
+    expect(maintenance.totalCents).toBe(3000);
+  });
 });
