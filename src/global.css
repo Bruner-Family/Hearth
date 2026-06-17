@@ -15,6 +15,8 @@
     --c-ok: 22 163 74;
     --c-warn: 217 119 6;
     --c-danger: 220 38 38;
+    --c-spend-buy: 37 99 235; /* blue #2563EB — new purchases */
+    --c-spend-fix: 22 163 74; /* green #16A34A — maintenance */
   }
 
   /* Paint the document itself so Safari's status-bar/toolbar overscroll
@@ -34,5 +36,7 @@
     --c-ok: 74 222 128;
     --c-warn: 251 191 36;
     --c-danger: 248 113 113;
+    --c-spend-buy: 96 165 250; /* blue #60A5FA — new purchases */
+    --c-spend-fix: 74 222 128; /* green #4ADE80 — maintenance */
   }
 }

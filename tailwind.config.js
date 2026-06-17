@@ -18,6 +18,8 @@ module.exports = {
         ok: "rgb(var(--c-ok) / <alpha-value>)",
         warn: "rgb(var(--c-warn) / <alpha-value>)",
         danger: "rgb(var(--c-danger) / <alpha-value>)",
+        "spend-buy": "rgb(var(--c-spend-buy) / <alpha-value>)",
+        "spend-fix": "rgb(var(--c-spend-fix) / <alpha-value>)",
       },
     },
   },
