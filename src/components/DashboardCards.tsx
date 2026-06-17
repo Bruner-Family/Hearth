@@ -217,7 +217,7 @@ function SpendColumn({
   year: number;
 }) {
   return (
-    <View>
+    <View className="flex-1">
       <Text className="text-xs text-ink-dim">{label}</Text>
       <Text className={`text-2xl font-bold ${valueClassName}`}>
         {formatCents(totalCents)}
