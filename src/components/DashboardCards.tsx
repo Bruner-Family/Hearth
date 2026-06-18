@@ -30,7 +30,7 @@ export function NeedsAttentionCard({
 }) {
   const router = useRouter();
   return (
-    <Card className="flex-1">
+    <Card className="md:flex-1">
       <View className="mb-2 flex-row items-baseline justify-between">
         <Text className="text-sm font-semibold text-ink">
           ⚠️ Needs attention
@@ -112,7 +112,7 @@ export function NeedsAttentionCard({
 
 export function NextFiveYearsCard({ years }: { years: ReplacementYear[] }) {
   return (
-    <Card className="flex-1">
+    <Card className="md:flex-1">
       <CardTitle>📅 Next 5 years</CardTitle>
       {years.length === 0 ? (
         <QuietNote>No projected replacements in the next five years.</QuietNote>
@@ -143,7 +143,7 @@ export function SpendCard({ spend }: { spend: YearSpend }) {
     1,
   );
   return (
-    <Card className="flex-1">
+    <Card className="md:flex-1">
       <CardTitle>💵 Spend this year</CardTitle>
       <View className="flex-row gap-6">
         <SpendColumn
@@ -249,7 +249,7 @@ export function RecentActivityCard({ logs }: { logs: HouseholdLog[] }) {
   const router = useRouter();
   const recent = logs.slice(0, 5);
   return (
-    <Card className="flex-1">
+    <Card className="md:flex-1">
       <CardTitle>🕐 Recent activity</CardTitle>
       {recent.length === 0 ? (
         <QuietNote>No maintenance logged yet.</QuietNote>
