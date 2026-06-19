@@ -36,6 +36,7 @@ jobs:
         run: bash scripts/backup/supabase-backup.test.sh
 
   restore-roundtrip:
+    needs: [validate]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

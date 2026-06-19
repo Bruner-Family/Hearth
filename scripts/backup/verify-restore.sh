@@ -14,8 +14,9 @@ log "Starting local Supabase stack"
 supabase start
 
 log "Reading local service-role key and API URL"
-SERVICE_KEY="$(supabase status -o json | python3 -c 'import sys,json;print(json.load(sys.stdin)["SERVICE_ROLE_KEY"])')"
-API_URL="$(supabase status -o json | python3 -c 'import sys,json;print(json.load(sys.stdin)["API_URL"])')"
+status_json="$(supabase status -o json)"
+SERVICE_KEY="$(python3 -c 'import sys,json;print(json.load(sys.stdin)["SERVICE_ROLE_KEY"])' <<<"$status_json")"
+API_URL="$(python3 -c 'import sys,json;print(json.load(sys.stdin)["API_URL"])' <<<"$status_json")"
 
 log "Seeding one auth user (via Auth admin API) and one public.households row"
 # Delete the test user if it already exists (idempotent re-runs).
