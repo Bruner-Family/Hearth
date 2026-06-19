@@ -1,0 +1,76 @@
+# Nightly self-managed backup of the Supabase project (Postgres + Storage) to a
+# private GCS bucket. Design: docs/superpowers/specs/2026-06-18-supabase-backup-design.md
+#
+# Required repository secrets (in addition to the GCP WIF secrets from deploy.yml):
+#   SUPABASE_DB_URL                session-pooler connection string (incl. password)
+#   SUPABASE_S3_ACCESS_KEY_ID      Supabase Storage S3 access key id
+#   SUPABASE_S3_SECRET_ACCESS_KEY  Supabase Storage S3 secret
+#   SUPABASE_S3_ENDPOINT           https://<ref>.supabase.co/storage/v1/s3
+#   SUPABASE_S3_REGION             e.g. us-east-1
+#   GCS_BACKUP_BUCKET              private backups bucket name (no gs:// prefix)
+# Reused: GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT
+
+name: Backup
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # ~midnight US, daily
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/backup/**"
+      - ".github/workflows/backup.yml"
+
+permissions:
+  contents: read
+  id-token: write # GCP Workload Identity Federation
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shellcheck
+        run: shellcheck -x scripts/backup/*.sh
+      - name: Unit tests
+        run: bash scripts/backup/supabase-backup.test.sh
+
+  restore-roundtrip:
+    needs: [validate]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Dump + restore round-trip against a local stack
+        run: bash scripts/backup/verify-restore.sh
+
+  backup:
+    # Only the scheduled/manual runs perform a real backup; PRs just validate.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run backup
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_S3_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+          SUPABASE_S3_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+          SUPABASE_S3_ENDPOINT: ${{ secrets.SUPABASE_S3_ENDPOINT }}
+          SUPABASE_S3_REGION: ${{ secrets.SUPABASE_S3_REGION }}
+          GCS_BACKUP_BUCKET: ${{ secrets.GCS_BACKUP_BUCKET }}
+        run: bash scripts/backup/supabase-backup.sh
