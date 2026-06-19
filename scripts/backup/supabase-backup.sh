@@ -52,4 +52,64 @@ verify_artifact() {
   return 0
 }
 
-# main is added in Task 2; the executable guard is added in Task 2 as well.
+# Dump roles, schema, and (public + auth) data via the session pooler, gzipped.
+# storage.objects is intentionally NOT dumped — re-uploading files recreates it.
+dump_database() {
+  local outdir="$1"
+  log "Dumping roles"
+  supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f "$outdir/roles.sql"
+  log "Dumping schema"
+  supabase db dump --db-url "$SUPABASE_DB_URL" -f "$outdir/schema.sql"
+  log "Dumping data (public + auth)"
+  supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy \
+    --schema public,auth -f "$outdir/data.sql"
+  gzip -f "$outdir/roles.sql" "$outdir/schema.sql" "$outdir/data.sql"
+  verify_artifact "$outdir/roles.sql.gz"
+  verify_artifact "$outdir/schema.sql.gz"
+  verify_artifact "$outdir/data.sql.gz"
+}
+
+# Mirror the Supabase Storage bucket to a local dir via the S3 endpoint, then tar.
+sync_storage() {
+  local outdir="$1"
+  local stage="$outdir/storage"
+  mkdir -p "$stage"
+  log "Syncing Supabase Storage bucket '$STORAGE_BUCKET'"
+  AWS_ACCESS_KEY_ID="$SUPABASE_S3_ACCESS_KEY_ID" \
+  AWS_SECRET_ACCESS_KEY="$SUPABASE_S3_SECRET_ACCESS_KEY" \
+  AWS_DEFAULT_REGION="$SUPABASE_S3_REGION" \
+    aws s3 sync "s3://$STORAGE_BUCKET" "$stage" \
+      --endpoint-url "$SUPABASE_S3_ENDPOINT" --no-progress
+  tar -czf "$outdir/storage.tar.gz" -C "$stage" .
+  rm -rf "$stage"
+  verify_artifact "$outdir/storage.tar.gz"
+}
+
+# Upload all artifacts under gs://<bucket>/<YYYY-MM-DD>/.
+upload_to_gcs() {
+  local outdir="$1" prefix="$2"
+  local dest="gs://$GCS_BACKUP_BUCKET/$prefix"
+  log "Uploading artifacts to $dest"
+  gcloud storage cp \
+    "$outdir/roles.sql.gz" "$outdir/schema.sql.gz" \
+    "$outdir/data.sql.gz" "$outdir/storage.tar.gz" \
+    "$dest/"
+}
+
+main() {
+  require_env SUPABASE_DB_URL SUPABASE_S3_ACCESS_KEY_ID SUPABASE_S3_SECRET_ACCESS_KEY \
+              SUPABASE_S3_ENDPOINT SUPABASE_S3_REGION GCS_BACKUP_BUCKET
+  local workdir prefix
+  workdir="${WORKDIR:-$(mktemp -d)}"
+  prefix="$(backup_prefix)"
+  log "Backup starting -> gs://$GCS_BACKUP_BUCKET/$prefix"
+  dump_database "$workdir"
+  sync_storage "$workdir"
+  upload_to_gcs "$workdir" "$prefix"
+  log "Backup complete: gs://$GCS_BACKUP_BUCKET/$prefix"
+}
+
+# Run main only when executed directly, so tests can source the helpers.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
