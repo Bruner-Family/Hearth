@@ -17,23 +17,40 @@ cd restore && gunzip -k ./*.gz
 The restore target must be a managed Supabase project (the `auth`/`storage`
 schemas must already exist — Hearth's `public` tables FK-reference `auth.users`).
 
-**In-place restore (existing project, recovering app data):**
-- Reapply schema if needed: `supabase db push` (migrations are the source of truth).
-- Reload data with FK enforcement deferred:
-
-  ```bash
-  { echo "set session_replication_role = replica;"; cat data.sql; } \
-    | psql "$SUPABASE_DB_URL"
-  ```
+**Reload is destructive and replaces current data.** `data.sql` is a data-only
+dump that includes the migration-seeded `public.item_categories`, so the target
+tables must be truncated first or the reload collides with the seeded rows. This
+mirrors the verified round-trip (`scripts/backup/verify-restore.sh`).
 
 **From-scratch restore (new project):**
 1. Create the project; run `supabase db push` to build the schema.
 2. **Re-configure the Pocket-ID OIDC provider in the Supabase dashboard** — it
    is dashboard-managed, not in migrations (`config.toml`).
-3. Load `roles.sql`, then `data.sql` as above. `data.sql` carries `public` +
-   `auth` (users and identities) so external-identity links survive.
-4. Do **not** hand-load `storage.objects`; it is recreated by the file
+3. Load `roles.sql` (cluster-global): `psql "$SUPABASE_DB_URL" -f roles.sql`.
+4. Truncate the seeded tables and reload data (snippet below).
+5. Do **not** hand-load `storage.objects`; it is recreated by the file
    re-upload in step 2 below.
+
+**In-place restore (existing project, recovering app data):**
+1. Reapply schema if it drifted: `supabase db push`.
+2. Truncate the tables and reload data (snippet below).
+
+**Truncate + reload `data.sql`:**
+
+  ```bash
+  psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+  set session_replication_role = replica;
+  truncate table public.attachments, public.maintenance_logs,
+    public.maintenance_schedules, public.notification_settings,
+    public.household_invites, public.household_members,
+    public.items, public.households, public.item_categories cascade;
+  truncate table auth.identities, auth.sessions, auth.refresh_tokens,
+    auth.mfa_factors, auth.flow_state cascade;
+  truncate table auth.users cascade;
+  SQL
+  { echo "set session_replication_role = replica;"; cat data.sql; } \
+    | psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1
+  ```
 
 ## 2. Storage (attachment files)
 
