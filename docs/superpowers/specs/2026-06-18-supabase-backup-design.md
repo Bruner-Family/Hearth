@@ -25,11 +25,18 @@ test-verified restore procedure.
 Data lives in two independent stores; a complete backup needs both:
 
 1. **Postgres** — application tables (`public` schema) and the `auth` schema
-   (`auth.users`, from Pocket-ID OIDC). Storage object *metadata* also lives in
-   Postgres (`storage.objects`).
-2. **Storage bucket** — the actual uploaded attachment files (receipts,
-   photos). These are **not** in a Postgres dump; they must be copied
-   separately.
+   (`auth.users`/`auth.identities`, from Pocket-ID OIDC). The `public.attachments`
+   table holds attachment *metadata* (`storage_path`, `mime_type`, `item_id`);
+   Storage object metadata also lives in Postgres (`storage.objects`).
+2. **Storage bucket** — the actual uploaded attachment **files** (receipts,
+   manuals, photos). The app stores these exclusively in **Supabase Storage**
+   (not GCS): a private bucket named **`attachments`** with the per-household
+   path `{household_id}/{item_id}/{timestamp}-{filename}`
+   (`supabase/migrations/20260610000004_storage.sql`; uploaded/served via
+   `supabase.storage.from("attachments")` in `src/lib/queries.ts`). The file
+   bytes are **not** in a Postgres dump and must be copied separately. Because
+   the Postgres `attachments` rows reference these files by `storage_path`, the
+   two stores must stay path-consistent across a backup/restore (see Restore).
 
 ## Decisions (locked during brainstorming)
 
@@ -121,7 +128,9 @@ New repository secrets consumed by the workflow:
 
 - `SUPABASE_DB_URL` — session-pooler connection string including the password.
 - `SUPABASE_S3_ACCESS_KEY_ID`, `SUPABASE_S3_SECRET_ACCESS_KEY`,
-  `SUPABASE_S3_ENDPOINT` — Supabase Storage S3 credentials/endpoint.
+  `SUPABASE_S3_ENDPOINT`, `SUPABASE_S3_REGION` — Supabase Storage S3
+  credentials, endpoint, and region (the AWS CLI requires a region even though
+  Supabase ignores its value for routing).
 - `GCS_BACKUP_BUCKET` — the private backups bucket name (no `gs://` prefix).
 
 Reused from the existing deploy setup:
@@ -145,6 +154,21 @@ The restore runbook covers:
    data); `roles.sql` for a from-scratch project.
 2. **Storage** — re-upload `storage.tar.gz` contents to the target bucket via
    `aws s3 sync` to the Supabase S3 endpoint.
+
+**Cross-store consistency.** Files must be re-uploaded to the **identical
+object paths** (`{household_id}/{item_id}/...`) so the restored
+`public.attachments.storage_path` rows continue to resolve. On a **from-scratch
+project** restore, do **not** restore `storage.objects` rows from the dump —
+re-uploading the files through the Storage/S3 API recreates those rows, and
+loading them from `data.sql` as well would create conflicts/orphans. (For an
+in-place restore into the existing project, `storage.objects` and the files are
+already intact, so only `public` data needs reloading.)
+
+**Auth caveat.** Pocket-ID is a **custom OIDC provider configured in the
+Supabase dashboard, not in migrations** (see `config.toml`). A from-scratch
+restore must therefore re-configure that provider by hand before/after loading
+`auth` data, and `auth.users`/`auth.identities` must be restored together so
+external-identity links survive. The runbook calls this out explicitly.
 
 During implementation we **verify** the database restore by loading `data.sql`
 into a local Postgres (`supabase start` stack) and asserting that key tables —
