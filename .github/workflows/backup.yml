@@ -44,6 +44,8 @@ jobs:
         with:
           version: latest
       - name: Dump + restore round-trip against a local stack
+        env:
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: bash scripts/backup/verify-restore.sh
 
   backup:
@@ -73,4 +75,5 @@ jobs:
           SUPABASE_S3_ENDPOINT: ${{ secrets.SUPABASE_S3_ENDPOINT }}
           SUPABASE_S3_REGION: ${{ secrets.SUPABASE_S3_REGION }}
           GCS_BACKUP_BUCKET: ${{ secrets.GCS_BACKUP_BUCKET }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: bash scripts/backup/supabase-backup.sh

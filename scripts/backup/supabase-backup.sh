@@ -52,6 +52,34 @@ verify_artifact() {
   return 0
 }
 
+# Encrypt all .gz artifacts in outdir with AES-256-CBC if BACKUP_ENCRYPTION_KEY is set.
+# Encrypted files get a .enc suffix; plaintext originals are removed.
+maybe_encrypt() {
+  local outdir="$1"
+  [[ -z "${BACKUP_ENCRYPTION_KEY:-}" ]] && return 0
+  log "Encrypting artifacts (AES-256-CBC)"
+  local f
+  for f in "$outdir"/*.gz; do
+    openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt \
+      -pass env:BACKUP_ENCRYPTION_KEY -in "$f" -out "${f}.enc"
+    rm -f "$f"
+  done
+}
+
+# Decrypt all .gz.enc artifacts in outdir if BACKUP_ENCRYPTION_KEY is set.
+# Restores the original .gz files; encrypted files are removed.
+maybe_decrypt() {
+  local outdir="$1"
+  [[ -z "${BACKUP_ENCRYPTION_KEY:-}" ]] && return 0
+  log "Decrypting artifacts (AES-256-CBC)"
+  local f
+  for f in "$outdir"/*.gz.enc; do
+    openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 \
+      -pass env:BACKUP_ENCRYPTION_KEY -in "$f" -out "${f%.enc}"
+    rm -f "$f"
+  done
+}
+
 # Dump roles, schema, and (public + auth) data via the session pooler, gzipped.
 # storage.objects is intentionally NOT dumped — re-uploading files recreates it.
 dump_database() {
@@ -86,14 +114,13 @@ sync_storage() {
 }
 
 # Upload all artifacts under gs://<bucket>/<YYYY-MM-DD>/.
+# Works for both plaintext (.gz) and encrypted (.gz.enc) artifacts.
 upload_to_gcs() {
   local outdir="$1" prefix="$2"
   local dest="gs://$GCS_BACKUP_BUCKET/$prefix"
   log "Uploading artifacts to $dest"
-  gcloud storage cp \
-    "$outdir/roles.sql.gz" "$outdir/schema.sql.gz" \
-    "$outdir/data.sql.gz" "$outdir/storage.tar.gz" \
-    "$dest/"
+  local -a files=("$outdir"/*)
+  gcloud storage cp "${files[@]}" "$dest/"
 }
 
 main() {
@@ -105,6 +132,7 @@ main() {
   log "Backup starting -> gs://$GCS_BACKUP_BUCKET/$prefix"
   dump_database "$workdir"
   sync_storage "$workdir"
+  maybe_encrypt "$workdir"
   upload_to_gcs "$workdir" "$prefix"
   log "Backup complete: gs://$GCS_BACKUP_BUCKET/$prefix"
 }

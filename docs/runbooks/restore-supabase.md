@@ -9,6 +9,22 @@ Produced by `.github/workflows/backup.yml` / `scripts/backup/supabase-backup.sh`
 ```bash
 DAY=2026-06-18   # the snapshot to restore
 gcloud storage cp "gs://$GCS_BACKUP_BUCKET/$DAY/*" ./restore/
+```
+
+If backups are encrypted (`.gz.enc` files), decrypt before proceeding:
+
+```bash
+cd restore
+for f in *.gz.enc; do
+  openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 \
+    -pass env:BACKUP_ENCRYPTION_KEY -in "$f" -out "${f%.enc}"
+  rm "$f"
+done
+```
+
+Then decompress:
+
+```bash
 cd restore && gunzip -k ./*.gz
 ```
 
