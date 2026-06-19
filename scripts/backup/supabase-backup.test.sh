@@ -7,8 +7,8 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DIR/supabase-backup.sh"
 
 fails=0
-ok()   { printf 'ok   - %s\n' "$1"; }
-bad()  { printf 'FAIL - %s\n' "$1"; fails=$((fails + 1)); }
+ok()  { printf 'ok   - %s\n' "$1"; }
+bad() { printf 'FAIL - %s\n' "$1"; fails=$((fails + 1)); }
 
 # backup_prefix: matches YYYY-MM-DD (UTC today)
 if [[ "$(backup_prefix)" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
@@ -18,23 +18,28 @@ else
 fi
 
 # require_env: passes when set, fails when missing/empty
-( export PRESENT=x; require_env PRESENT ) && ok "require_env passes when set" \
-  || bad "require_env passes when set"
-( unset MISSING; require_env MISSING ) 2>/dev/null \
-  && bad "require_env fails when missing" || ok "require_env fails when missing"
+if ( export PRESENT=x; require_env PRESENT ); then
+  ok "require_env passes when set"
+else
+  bad "require_env passes when set"
+fi
+if ( unset MISSING; require_env MISSING ) 2>/dev/null; then
+  bad "require_env fails when missing"
+else
+  ok "require_env fails when missing"
+fi
 
-# verify_artifact: empty file fails, non-empty plain file passes,
-# valid gzip passes, corrupt gzip fails
+# verify_artifact: empty fails, non-empty plain passes, valid gzip passes, corrupt gzip fails
 tmp="$(mktemp -d)"
 : > "$tmp/empty.txt"
 printf 'data' > "$tmp/plain.txt"
 printf 'data' | gzip -c > "$tmp/good.gz"
 printf 'not gzip' > "$tmp/bad.gz"
 
-verify_artifact "$tmp/empty.txt" 2>/dev/null && bad "verify_artifact rejects empty" || ok "verify_artifact rejects empty"
-verify_artifact "$tmp/plain.txt" 2>/dev/null && ok "verify_artifact accepts non-empty plain" || bad "verify_artifact accepts non-empty plain"
-verify_artifact "$tmp/good.gz" 2>/dev/null && ok "verify_artifact accepts valid gzip" || bad "verify_artifact accepts valid gzip"
-verify_artifact "$tmp/bad.gz" 2>/dev/null && bad "verify_artifact rejects corrupt gzip" || ok "verify_artifact rejects corrupt gzip"
+if verify_artifact "$tmp/empty.txt" 2>/dev/null; then bad "verify_artifact rejects empty"; else ok "verify_artifact rejects empty"; fi
+if verify_artifact "$tmp/plain.txt" 2>/dev/null; then ok "verify_artifact accepts non-empty plain"; else bad "verify_artifact accepts non-empty plain"; fi
+if verify_artifact "$tmp/good.gz" 2>/dev/null; then ok "verify_artifact accepts valid gzip"; else bad "verify_artifact accepts valid gzip"; fi
+if verify_artifact "$tmp/bad.gz" 2>/dev/null; then bad "verify_artifact rejects corrupt gzip"; else ok "verify_artifact rejects corrupt gzip"; fi
 
 rm -rf "$tmp"
 [[ "$fails" -eq 0 ]] || { printf '\n%d test(s) failed\n' "$fails"; exit 1; }
