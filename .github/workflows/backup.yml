@@ -35,6 +35,16 @@ jobs:
       - name: Unit tests
         run: bash scripts/backup/supabase-backup.test.sh
 
+  restore-roundtrip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Dump + restore round-trip against a local stack
+        run: bash scripts/backup/verify-restore.sh
+
   backup:
     # Only the scheduled/manual runs perform a real backup; PRs just validate.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
