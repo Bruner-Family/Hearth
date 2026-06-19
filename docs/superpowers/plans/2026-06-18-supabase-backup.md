@@ -296,7 +296,7 @@ Create `scripts/backup/gcs-lifecycle.json`:
 }
 ```
 
-(Documentation parity only — the authoritative rule is applied by the IaC repo. To apply manually if ever needed: `gcloud storage buckets update gs://$GCS_BACKUP_BUCKET --lifecycle-file=scripts/backup/gcs-lifecycle.json`.)
+(Documentation parity only — the authoritative rule is applied by the IaC repo. To apply manually if ever needed: `gsutil lifecycle set scripts/backup/gcs-lifecycle.json gs://$GCS_BACKUP_BUCKET`.)
 
 - [ ] **Step 2: Create the workflow**
 

@@ -12,6 +12,8 @@ gcloud storage cp "gs://$GCS_BACKUP_BUCKET/$DAY/*" ./restore/
 cd restore && gunzip -k ./*.gz
 ```
 
+> `schema.sql.gz` is a structural snapshot for reference; on managed Supabase the schema is restored with `supabase db push` (migrations), not by loading it directly.
+
 ## 1. Database
 
 The restore target must be a managed Supabase project (the `auth`/`storage`
@@ -26,7 +28,7 @@ mirrors the verified round-trip (`scripts/backup/verify-restore.sh`).
 1. Create the project; run `supabase db push` to build the schema.
 2. **Re-configure the Pocket-ID OIDC provider in the Supabase dashboard** — it
    is dashboard-managed, not in migrations (`config.toml`).
-3. Load `roles.sql` (cluster-global): `psql "$SUPABASE_DB_URL" -f roles.sql`.
+3. Load `roles.sql` (cluster-global): `psql "$SUPABASE_DB_URL" -f roles.sql`. On managed Supabase the application roles already exist (created by migrations/grants), so "role already exists" notices here are expected and safe to ignore; `roles.sql` matters mainly for self-hosted Postgres targets.
 4. Truncate the seeded tables and reload data (snippet below).
 5. Do **not** hand-load `storage.objects`; it is recreated by the file
    re-upload in step 2 below.
