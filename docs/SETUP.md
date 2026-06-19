@@ -168,6 +168,101 @@ pg_cron schedule. Background: [ADR-003](adrs/ADR-003-notifications.md).
    time — is entered in the app under **Settings → Notifications** (owner
    only).
 
+## 9. Nightly backups (v1.5)
+
+The backup workflow (`.github/workflows/backup.yml`) requires three one-time
+prerequisites that live outside this repo.
+
+### 9.1 GCS backup bucket (IaC repo)
+
+The private bucket, its public-access prevention, the 30-day lifecycle rule,
+and the IAM binding are managed in the separate IaC/Terraform repo — **not
+here**. Add the following resources and apply:
+
+```hcl
+resource "google_storage_bucket" "supabase_backup" {
+  name                        = "hearth-supabase-backup" # becomes GCS_BACKUP_BUCKET
+  location                    = "US"
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      age = 30 # days — mirrors scripts/backup/gcs-lifecycle.json
+    }
+  }
+}
+
+# Reuse the existing deployer SA (GCP_SERVICE_ACCOUNT from step 4).
+resource "google_storage_bucket_iam_member" "supabase_backup_writer" {
+  bucket = google_storage_bucket.supabase_backup.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:<GCP_SERVICE_ACCOUNT email>"
+}
+```
+
+```sh
+terraform apply
+```
+
+The bucket name (no `gs://` prefix) becomes the `GCS_BACKUP_BUCKET` secret.
+
+### 9.2 Supabase credentials
+
+**Session-pooler DB URL (`SUPABASE_DB_URL`)**
+Supabase Dashboard → **Project Settings → Database → Connection string** →
+select **Session pooler** (port 5432). Copy the full URL including the password.
+
+**Storage S3 keypair**
+Supabase Dashboard → **Project Settings → Storage → S3 Access Keys** →
+**Generate new keypair**. This yields:
+
+| Value             | Secret name                    |
+| ----------------- | ------------------------------ |
+| Access Key ID     | `SUPABASE_S3_ACCESS_KEY_ID`    |
+| Secret Access Key | `SUPABASE_S3_SECRET_ACCESS_KEY`|
+
+The remaining two S3 values are derived from the project ref (no dashboard
+action required):
+
+| Value                                         | Secret name             |
+| --------------------------------------------- | ----------------------- |
+| `https://<ref>.supabase.co/storage/v1/s3`    | `SUPABASE_S3_ENDPOINT`  |
+| Any non-empty string, e.g. `us-east-1`        | `SUPABASE_S3_REGION`    |
+
+> Supabase ignores the region value; the AWS CLI requires it to be set.
+
+### 9.3 New GitHub Actions secrets
+
+Repo → **Settings → Secrets and variables → Actions**. Add the six secrets
+below (the backup workflow also reuses `GCP_WORKLOAD_IDENTITY_PROVIDER` and
+`GCP_SERVICE_ACCOUNT` from step 4 — no changes needed there):
+
+| Secret                          | Source                                              |
+| ------------------------------- | --------------------------------------------------- |
+| `SUPABASE_DB_URL`               | Session-pooler connection string (step 9.2)         |
+| `SUPABASE_S3_ACCESS_KEY_ID`     | Supabase Storage S3 key (step 9.2)                  |
+| `SUPABASE_S3_SECRET_ACCESS_KEY` | Supabase Storage S3 secret (step 9.2)               |
+| `SUPABASE_S3_ENDPOINT`          | `https://<ref>.supabase.co/storage/v1/s3`           |
+| `SUPABASE_S3_REGION`            | Any non-empty value, e.g. `us-east-1`               |
+| `GCS_BACKUP_BUCKET`             | Backup bucket name, no `gs://` prefix (step 9.1)   |
+
+### 9.4 Verify first run
+
+Once secrets and bucket are in place, trigger the workflow manually:
+
+```sh
+gh workflow run backup.yml
+```
+
+Confirm the four artifacts land in `gs://<GCS_BACKUP_BUCKET>/<YYYY-MM-DD>/`
+(`roles.sql.gz`, `schema.sql.gz`, `data.sql.gz`, `storage.tar.gz`).
+
+---
+
 ## Smoke test
 
 After everything above: open `https://home.bruner.family`, sign in with a
