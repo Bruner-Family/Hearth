@@ -42,5 +42,41 @@ if verify_artifact "$tmp/good.gz" 2>/dev/null; then ok "verify_artifact accepts 
 if verify_artifact "$tmp/bad.gz" 2>/dev/null; then bad "verify_artifact rejects corrupt gzip"; else ok "verify_artifact rejects corrupt gzip"; fi
 
 rm -rf "$tmp"
+
+# maybe_encrypt / maybe_decrypt: full round-trip preserves content
+enc_tmp="$(mktemp -d)"
+printf 'hello backup' | gzip -c > "$enc_tmp/test.sql.gz"
+export BACKUP_ENCRYPTION_KEY="test-key-$$"
+maybe_encrypt "$enc_tmp"
+if [[ -f "$enc_tmp/test.sql.gz.enc" && ! -f "$enc_tmp/test.sql.gz" ]]; then
+  ok "maybe_encrypt creates .enc and removes plaintext"
+else
+  bad "maybe_encrypt creates .enc and removes plaintext"
+fi
+maybe_decrypt "$enc_tmp"
+if [[ -f "$enc_tmp/test.sql.gz" && ! -f "$enc_tmp/test.sql.gz.enc" ]]; then
+  ok "maybe_decrypt restores .gz and removes .enc"
+else
+  bad "maybe_decrypt restores .gz and removes .enc"
+fi
+if [[ "$(gunzip -c "$enc_tmp/test.sql.gz")" == "hello backup" ]]; then
+  ok "encrypt/decrypt round-trips content"
+else
+  bad "encrypt/decrypt round-trips content"
+fi
+unset BACKUP_ENCRYPTION_KEY
+rm -rf "$enc_tmp"
+
+# maybe_encrypt is a no-op when BACKUP_ENCRYPTION_KEY is unset
+noop_tmp="$(mktemp -d)"
+printf 'data' | gzip -c > "$noop_tmp/test.sql.gz"
+(unset BACKUP_ENCRYPTION_KEY; maybe_encrypt "$noop_tmp")
+if [[ -f "$noop_tmp/test.sql.gz" && ! -f "$noop_tmp/test.sql.gz.enc" ]]; then
+  ok "maybe_encrypt is a no-op when BACKUP_ENCRYPTION_KEY is unset"
+else
+  bad "maybe_encrypt is a no-op when BACKUP_ENCRYPTION_KEY is unset"
+fi
+rm -rf "$noop_tmp"
+
 [[ "$fails" -eq 0 ]] || { printf '\n%d test(s) failed\n' "$fails"; exit 1; }
 printf '\nAll tests passed\n'

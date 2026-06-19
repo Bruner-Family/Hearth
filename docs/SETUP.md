@@ -241,6 +241,12 @@ Repo → **Settings → Secrets and variables → Actions**. Add the six secrets
 below (the backup workflow also reuses `GCP_WORKLOAD_IDENTITY_PROVIDER` and
 `GCP_SERVICE_ACCOUNT` from step 4 — no changes needed there):
 
+Generate the encryption key once and store it somewhere safe (password manager):
+
+```sh
+openssl rand -hex 32
+```
+
 | Secret                          | Source                                              |
 | ------------------------------- | --------------------------------------------------- |
 | `SUPABASE_DB_URL`               | Session-pooler connection string (step 9.2)         |
@@ -249,6 +255,7 @@ below (the backup workflow also reuses `GCP_WORKLOAD_IDENTITY_PROVIDER` and
 | `SUPABASE_S3_ENDPOINT`          | `https://<ref>.supabase.co/storage/v1/s3`           |
 | `SUPABASE_S3_REGION`            | Any non-empty value, e.g. `us-east-1`               |
 | `GCS_BACKUP_BUCKET`             | Backup bucket name, no `gs://` prefix (step 9.1)   |
+| `BACKUP_ENCRYPTION_KEY`         | 64-char hex string from `openssl rand -hex 32`      |
 
 ### 9.4 Verify first run
 

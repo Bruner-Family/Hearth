@@ -37,6 +37,12 @@ log "Dumping the seeded stack with the backup script"
 WORK="$(mktemp -d)"
 SUPABASE_DB_URL="$LOCAL_DB_URL" dump_database "$WORK"
 
+if [[ -n "${BACKUP_ENCRYPTION_KEY:-}" ]]; then
+  log "Exercising encrypt/decrypt cycle (BACKUP_ENCRYPTION_KEY is set)"
+  maybe_encrypt "$WORK"
+  maybe_decrypt "$WORK"
+fi
+
 log "Asserting the data dump captured both public and auth data"
 gunzip -kf "$WORK/data.sql.gz"
 grep -q "Roundtrip House" "$WORK/data.sql" || { log "ASSERT FAILED: public data not in dump"; exit 1; }
