@@ -8,6 +8,7 @@
 #   SUPABASE_S3_ENDPOINT           https://<ref>.supabase.co/storage/v1/s3
 #   SUPABASE_S3_REGION             e.g. us-east-1
 #   GCS_BACKUP_BUCKET              private backups bucket name (no gs:// prefix)
+#   CHRONOS_API_KEY                API key for Chronos health-check pings
 # Reused: GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT
 
 name: Backup
@@ -55,6 +56,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Ping Chronos (start)
+        env:
+          CHRONOS_API_KEY: ${{ secrets.CHRONOS_API_KEY }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          curl -fsS -X POST https://chronos.bruner.family/ingest \
+            -H "Authorization: Bearer $CHRONOS_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"job\":\"hearth-supabase-backup\",\"status\":\"start\",\"run_id\":\"$RUN_ID\"}" \
+            >/dev/null || true
+
       - uses: supabase/setup-cli@v1
         with:
           version: latest
@@ -77,3 +89,28 @@ jobs:
           GCS_BACKUP_BUCKET: ${{ secrets.GCS_BACKUP_BUCKET }}
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: bash scripts/backup/supabase-backup.sh
+
+      - name: Ping Chronos (success)
+        if: success()
+        env:
+          CHRONOS_API_KEY: ${{ secrets.CHRONOS_API_KEY }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          curl -fsS -X POST https://chronos.bruner.family/ingest \
+            -H "Authorization: Bearer $CHRONOS_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"job\":\"hearth-supabase-backup\",\"status\":\"success\",\"run_id\":\"$RUN_ID\"}" \
+            >/dev/null || true
+
+      - name: Ping Chronos (failure)
+        if: failure()
+        env:
+          CHRONOS_API_KEY: ${{ secrets.CHRONOS_API_KEY }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -fsS -X POST https://chronos.bruner.family/ingest \
+            -H "Authorization: Bearer $CHRONOS_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"job\":\"hearth-supabase-backup\",\"status\":\"error\",\"run_id\":\"$RUN_ID\",\"message\":\"Backup failed — see $RUN_URL\"}" \
+            >/dev/null || true
