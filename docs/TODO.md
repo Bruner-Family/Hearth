@@ -47,6 +47,30 @@ ADR in [`docs/adrs/`](adrs/) instead.
     `expo-document-picker` (the upload/render path is unchanged), and show the
     file name on non-image thumbs so a wall of 📄 icons stays distinguishable.
 
+- [ ] **Attach files to individual maintenance log entries.** Let a maintenance
+  log entry (receipt, service report, PDF, photo) carry its own attachments,
+  not just the parent item. The `attachments` table and upload path are already
+  type-agnostic and `AttachmentsSection` (`src/components/AttachmentsSection.tsx`)
+  is built around an item; the work is parameterizing attachments to a log entry
+  (new nullable `maintenance_log_id` link + a log-scoped `AttachmentsSection`
+  on the log edit screen at `items/[id]/log/[logId]`). Surfaced by the
+  edit/delete log work
+  ([spec](superpowers/specs/2026-06-22-edit-delete-maintenance-log-design.md),
+  2026-06-22).
+
+## Security
+
+- [ ] **Server-enforce immutability of server-managed columns.** `created_by`
+  and `created_at` on `maintenance_logs` (and `items` / `maintenance_schedules`)
+  are only protected from client tampering by convention — the client ships the
+  Supabase anon key, so RLS is the real boundary, and the current
+  `*_rw ... for all` policies allow a household member to rewrite these columns
+  via a direct API call. Tighten with an RLS `with check` guard or a
+  column-level `REVOKE UPDATE` so the server enforces the invariant. The
+  `useUpdate*` hooks already allow-list editable fields client-side, but that is
+  defense against our own bugs, not authorization. Surfaced by the commit
+  security review during the edit/delete log work (2026-06-22).
+
 ## Storage
 
 - [ ] Evaluate moving photo/attachment storage off Supabase Storage to a
