@@ -1,3 +1,9 @@
+// Global test setup. Required because some unit tests import modules
+// (e.g. `@/lib/demo`) that transitively import `@/lib/supabase`, which reads
+// EXPO_PUBLIC_SUPABASE_* env vars at module-load time (throwing if absent) and
+// imports react-native / async-storage. Env vars must be set and native
+// modules mocked BEFORE those imports evaluate — only a setupFile can do that.
+
 import { vi } from "vitest";
 
 // Define globals needed for expo modules

@@ -482,8 +482,7 @@ export const demoDb = {
   },
 
   updateLog: (id: string, values: LogUpdate): MaintenanceLog => {
-    const current = db.logs.find((l) => l.id === id);
-    if (!current) throw new Error("Log not found");
+    const current = demoDb.getLog(id);
     const next: MaintenanceLog = { ...current, ...values, id };
     db.logs = db.logs.map((l) => (l.id === id ? next : l));
     return next;
