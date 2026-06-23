@@ -7,7 +7,7 @@
 import { vi } from "vitest";
 
 // Define globals needed for expo modules
-globalThis.__DEV__ = false;
+(globalThis as any).__DEV__ = false;
 
 // Set up environment variables
 process.env.EXPO_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
