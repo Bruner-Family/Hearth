@@ -162,7 +162,7 @@ export default function ItemDetailScreen() {
       )}
       <Button
         title="Log maintenance"
-        onPress={() => router.push(`/items/${item.id}/log`)}
+        onPress={() => router.push(`/items/${item.id}/log/new`)}
       />
 
       <AttachmentsSection householdId={item.household_id} itemId={item.id} />
@@ -180,6 +180,7 @@ export default function ItemDetailScreen() {
 }
 
 function LogRow({ log, first }: { log: MaintenanceLog; first: boolean }) {
+  const router = useRouter();
   const deleteLog = useDeleteLog();
 
   const confirmDelete = () => {
@@ -201,7 +202,8 @@ function LogRow({ log, first }: { log: MaintenanceLog; first: boolean }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityHint="Long-press to delete"
+      accessibilityHint="Tap to edit, long-press to delete"
+      onPress={() => router.push(`/items/${log.item_id}/log/${log.id}`)}
       onLongPress={confirmDelete}
       className={`py-2.5 ${first ? "" : "border-t border-edge"}`}
     >
