@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabase";
 type ItemInsert = Database["public"]["Tables"]["items"]["Insert"];
 type ItemUpdate = Database["public"]["Tables"]["items"]["Update"];
 type LogInsert = Database["public"]["Tables"]["maintenance_logs"]["Insert"];
+type LogUpdate = Database["public"]["Tables"]["maintenance_logs"]["Update"];
 type ScheduleInsert =
   Database["public"]["Tables"]["maintenance_schedules"]["Insert"];
 type ScheduleUpdate =
@@ -193,6 +194,24 @@ export function useLogs(itemId: string | undefined) {
   });
 }
 
+export function useLog(logId: string | undefined) {
+  const { enabled: demo } = useDemo();
+  return useQuery({
+    queryKey: ["log", logId],
+    enabled: !!logId,
+    queryFn: async (): Promise<MaintenanceLog> => {
+      if (demo) return demoDb.getLog(logId!);
+      const { data, error } = await supabase
+        .from("maintenance_logs")
+        .select("*")
+        .eq("id", logId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 export function useCreateLog() {
   const { enabled: demo } = useDemo();
   const qc = useQueryClient();
@@ -210,6 +229,33 @@ export function useCreateLog() {
     onSuccess: (log) => {
       void qc.invalidateQueries({ queryKey: ["logs", log.item_id] });
       void qc.invalidateQueries({ queryKey: ["household-logs"] });
+    },
+  });
+}
+
+export function useUpdateLog() {
+  const { enabled: demo } = useDemo();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      item_id: _item_id,
+      ...values
+    }: LogUpdate & { id: string; item_id: string }) => {
+      if (demo) return demoDb.updateLog(id, values);
+      const { data, error } = await supabase
+        .from("maintenance_logs")
+        .update(values)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (log) => {
+      void qc.invalidateQueries({ queryKey: ["logs", log.item_id] });
+      void qc.invalidateQueries({ queryKey: ["household-logs"] });
+      void qc.invalidateQueries({ queryKey: ["log", log.id] });
     },
   });
 }
