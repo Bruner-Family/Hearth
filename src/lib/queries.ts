@@ -18,7 +18,6 @@ import { supabase } from "@/lib/supabase";
 type ItemInsert = Database["public"]["Tables"]["items"]["Insert"];
 type ItemUpdate = Database["public"]["Tables"]["items"]["Update"];
 type LogInsert = Database["public"]["Tables"]["maintenance_logs"]["Insert"];
-type LogUpdate = Database["public"]["Tables"]["maintenance_logs"]["Update"];
 type ScheduleInsert =
   Database["public"]["Tables"]["maintenance_schedules"]["Insert"];
 type ScheduleUpdate =
@@ -239,9 +238,23 @@ export function useUpdateLog() {
   return useMutation({
     mutationFn: async ({
       id,
-      item_id: _item_id,
-      ...values
-    }: LogUpdate & { id: string; item_id: string }) => {
+      performed_on,
+      cost_cents,
+      performed_by,
+      notes,
+    }: {
+      id: string;
+      item_id: string;
+      performed_on: string;
+      cost_cents: number | null;
+      performed_by: string | null;
+      notes: string | null;
+    }) => {
+      // Allow-list the user-editable columns. Server-managed fields
+      // (id, item_id, created_by, created_at) are never written from client
+      // input, even if a future caller passes them. RLS remains the actual
+      // authorization boundary; this just keeps our own writes honest.
+      const values = { performed_on, cost_cents, performed_by, notes };
       if (demo) return demoDb.updateLog(id, values);
       const { data, error } = await supabase
         .from("maintenance_logs")
