@@ -6,8 +6,8 @@
 
 import { vi } from "vitest";
 
-// Define globals needed for expo modules
-(globalThis as any).__DEV__ = false;
+// Define globals needed for expo modules (React Native reads __DEV__ at load).
+(globalThis as typeof globalThis & { __DEV__: boolean }).__DEV__ = false;
 
 // Set up environment variables
 process.env.EXPO_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
