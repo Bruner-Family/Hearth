@@ -372,6 +372,7 @@ function seed(): {
 type ItemInsert = Database["public"]["Tables"]["items"]["Insert"];
 type ItemUpdate = Database["public"]["Tables"]["items"]["Update"];
 type LogInsert = Database["public"]["Tables"]["maintenance_logs"]["Insert"];
+type LogUpdate = Database["public"]["Tables"]["maintenance_logs"]["Update"];
 type ScheduleInsert =
   Database["public"]["Tables"]["maintenance_schedules"]["Insert"];
 type ScheduleUpdate =
@@ -472,6 +473,20 @@ export const demoDb = {
 
   deleteLog: (id: string) => {
     db.logs = db.logs.filter((l) => l.id !== id);
+  },
+
+  getLog: (id: string): MaintenanceLog => {
+    const log = db.logs.find((l) => l.id === id);
+    if (!log) throw new Error("Log not found");
+    return log;
+  },
+
+  updateLog: (id: string, values: LogUpdate): MaintenanceLog => {
+    const current = db.logs.find((l) => l.id === id);
+    if (!current) throw new Error("Log not found");
+    const next: MaintenanceLog = { ...current, ...values, id };
+    db.logs = db.logs.map((l) => (l.id === id ? next : l));
+    return next;
   },
 
   listSchedules: (): (MaintenanceSchedule & {
