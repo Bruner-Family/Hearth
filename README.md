@@ -79,3 +79,4 @@ Cloudflare cache. Required secrets are listed at the top of the workflow.
 
 The bucket/Cloudflare need a SPA fallback (404 → `/index.html`) so
 client-side routes like `/items/<id>` resolve on refresh.
+
