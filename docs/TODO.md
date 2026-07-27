@@ -3,6 +3,10 @@
 Backlog of feature-level improvements. Larger architectural changes get an
 ADR in [`docs/adrs/`](adrs/) instead.
 
+For the cross-cutting plan to make Hearth a production iOS application, see
+the [iOS readiness TODO](IOS-READINESS-TODO.md). This file remains the backlog
+for individual product improvements.
+
 ## Forms & date entry
 
 - [x] **Purchase date: require only year/month, day optional.** Done: the
