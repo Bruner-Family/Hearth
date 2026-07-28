@@ -7,17 +7,21 @@ import {
   View,
 } from "react-native";
 
+import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { LogForm } from "@/components/LogForm";
 import { Button, Loading } from "@/components/ui";
 import { parseDollarsToCents } from "@/lib/format";
-import { useDeleteLog, useLog, useUpdateLog } from "@/lib/queries";
+import { useDeleteLog, useItem, useLog, useUpdateLog } from "@/lib/queries";
 import { usePalette } from "@/lib/theme";
 
 export default function EditLogScreen() {
-  const { logId } = useLocalSearchParams<{ id: string; logId: string }>();
+  const { id, logId } = useLocalSearchParams<{ id: string; logId: string }>();
   const router = useRouter();
   const palette = usePalette();
   const { data: log, isLoading } = useLog(logId);
+  // Only for the household id — attachments are stored under
+  // {household_id}/{item_id}/… and storage RLS checks that prefix.
+  const { data: item } = useItem(id);
   const updateLog = useUpdateLog();
   const deleteLog = useDeleteLog();
 
@@ -69,7 +73,9 @@ export default function EditLogScreen() {
                 id: log.id,
                 item_id: log.item_id,
                 performed_on: values.performed_on,
-                cost_cents: values.cost ? parseDollarsToCents(values.cost) : null,
+                cost_cents: values.cost
+                  ? parseDollarsToCents(values.cost)
+                  : null,
                 performed_by:
                   values.performed_by && values.performed_by.trim() !== ""
                     ? values.performed_by.trim()
@@ -83,6 +89,13 @@ export default function EditLogScreen() {
             )
           }
         />
+        {item ? (
+          <AttachmentsSection
+            householdId={item.household_id}
+            itemId={log.item_id}
+            maintenanceLogId={log.id}
+          />
+        ) : null}
         <View className="mt-10">
           <Button
             title="Delete entry"
