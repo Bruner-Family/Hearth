@@ -35,16 +35,16 @@ function sanitizePart(part: string): string {
 
 /**
  * What to show under a non-image thumb. Falls back to the storage path's last
- * segment (minus the upload timestamp prefix) for rows written before
- * `file_name` existed.
+ * segment (minus the upload timestamp prefix) for rows without `file_name`.
+ * The migration backfills legacy rows because their original names cannot be
+ * distinguished reliably from the random suffix in newer object keys.
  */
 export function attachmentDisplayName(
   attachment: Pick<Attachment, "file_name" | "storage_path">,
 ): string {
   if (attachment.file_name) return attachment.file_name;
   const segment = attachment.storage_path.split("/").pop() ?? "";
-  // Strip the upload timestamp, and the random suffix on newer keys.
-  return segment.replace(/^\d+-([a-z0-9]{1,8}-)?/, "") || "Attachment";
+  return segment.replace(/^\d+-/, "") || "Attachment";
 }
 
 /**

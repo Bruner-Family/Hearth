@@ -80,10 +80,11 @@ real household members.
 
 - [ ] **Make attachment writes failure-safe.**
   - Current evidence: `useUploadAttachment` now removes the object it just
-    wrote if the row insert fails, and `useDeleteItem` / `useDeleteLog` purge
-    storage before the cascade. Still open: delete removes the row first and
-    ignores a later storage-delete error, and a compensating cleanup that
-    itself fails leaves an object with nothing left to reconcile it against.
+    wrote if the row insert fails. `useDeleteItem` / `useDeleteLog` now delete
+    the database parent before storage cleanup, so a database failure cannot
+    destroy live attachment data. Still open: delete can leave an orphan when
+    later storage cleanup fails, and a compensating upload cleanup that itself
+    fails has the same result.
   - Move the multi-step writes server-side, or record/reconcile orphaned
     objects.
   - Done: object names carry a random suffix alongside `Date.now()`, and file

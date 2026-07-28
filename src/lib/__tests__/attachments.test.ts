@@ -70,13 +70,28 @@ describe("attachmentDisplayName", () => {
     ).toBe("receipt.pdf");
   });
 
-  it("also strips the random suffix newer keys carry", () => {
+  it("does not guess that a null-row filename prefix is a random suffix", () => {
     expect(
       attachmentDisplayName({
         file_name: null,
         storage_path: "h/i/1750000000000-k3f9zq-receipt.pdf",
       }),
-    ).toBe("receipt.pdf");
+    ).toBe("k3f9zq-receipt.pdf");
+  });
+
+  it("preserves short prefixes in legacy filenames", () => {
+    expect(
+      attachmentDisplayName({
+        file_name: null,
+        storage_path: "h/i/1750000000000-2024-receipt.pdf",
+      }),
+    ).toBe("2024-receipt.pdf");
+    expect(
+      attachmentDisplayName({
+        file_name: null,
+        storage_path: "h/i/1750000000000-hvac-manual.pdf",
+      }),
+    ).toBe("hvac-manual.pdf");
   });
 
   it("falls back to a label when the path has no usable segment", () => {

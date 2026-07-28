@@ -143,9 +143,10 @@ export function useDeleteItem() {
         demoDb.deleteItem(item.id);
         return item;
       }
-      await purgeAttachmentObjects("item_id", item.id);
+      const attachmentPaths = await attachmentObjectPaths("item_id", item.id);
       const { error } = await supabase.from("items").delete().eq("id", item.id);
       if (error) throw error;
+      await removeAttachmentObjects(attachmentPaths);
       return item;
     },
     onSuccess: (item) => invalidate(item),
@@ -284,12 +285,16 @@ export function useDeleteLog() {
         demoDb.deleteLog(log.id);
         return log;
       }
-      await purgeAttachmentObjects("maintenance_log_id", log.id);
+      const attachmentPaths = await attachmentObjectPaths(
+        "maintenance_log_id",
+        log.id,
+      );
       const { error } = await supabase
         .from("maintenance_logs")
         .delete()
         .eq("id", log.id);
       if (error) throw error;
+      await removeAttachmentObjects(attachmentPaths);
       return log;
     },
     onSuccess: (log) => {
@@ -624,24 +629,34 @@ export function useDeleteAttachment() {
 }
 
 /**
- * Delete the storage objects for attachment rows about to be cascaded away by
- * a parent delete. `on delete cascade` reaches the rows but not the bucket, so
- * without this the blobs are orphaned with nothing left pointing at them.
+ * Capture the storage objects for attachment rows before a parent delete.
+ * The database row is deleted before its objects so a failed database request
+ * can never leave visible attachment records pointing at destroyed files.
  */
-async function purgeAttachmentObjects(
+async function attachmentObjectPaths(
   column: "item_id" | "maintenance_log_id",
   id: string,
-) {
+): Promise<string[]> {
   const { data, error } = await supabase
     .from("attachments")
     .select("storage_path")
     .eq(column, id);
   if (error) throw error;
-  if (data.length === 0) return;
+  return data.map((row) => row.storage_path);
+}
+
+async function removeAttachmentObjects(paths: string[]) {
+  if (paths.length === 0) return;
   const { error: removeError } = await supabase.storage
     .from("attachments")
-    .remove(data.map((row) => row.storage_path));
-  if (removeError) throw removeError;
+    .remove(paths);
+  // The parent deletion has already committed. Treat cleanup as best-effort so
+  // the UI does not report that deletion failed or retain stale parent data.
+  // A failed cleanup leaves recoverable orphaned storage, never a live row
+  // pointing at a destroyed file.
+  if (removeError) {
+    console.error("Failed to remove orphaned attachment objects", removeError);
+  }
 }
 
 export function useAttachmentUrl(storagePath: string) {

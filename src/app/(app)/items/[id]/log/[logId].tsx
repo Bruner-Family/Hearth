@@ -9,7 +9,7 @@ import {
 
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { LogForm } from "@/components/LogForm";
-import { Button, Loading } from "@/components/ui";
+import { Button, ErrorNote, Loading } from "@/components/ui";
 import { parseDollarsToCents } from "@/lib/format";
 import { useDeleteLog, useItem, useLog, useUpdateLog } from "@/lib/queries";
 import { usePalette } from "@/lib/theme";
@@ -21,11 +21,19 @@ export default function EditLogScreen() {
   const { data: log, isLoading } = useLog(logId);
   // Only for the household id — attachments are stored under
   // {household_id}/{item_id}/… and storage RLS checks that prefix.
-  const { data: item } = useItem(id);
+  const { data: item, isLoading: isItemLoading } = useItem(log?.item_id);
   const updateLog = useUpdateLog();
   const deleteLog = useDeleteLog();
 
   if (isLoading || !log) return <Loading />;
+  if (log.item_id !== id) {
+    return (
+      <View className="flex-1 justify-center bg-bg p-4">
+        <ErrorNote message="This maintenance entry does not belong to this item." />
+      </View>
+    );
+  }
+  if (isItemLoading || !item) return <Loading />;
 
   const confirmDelete = () => {
     const remove = () =>

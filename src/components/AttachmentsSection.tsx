@@ -61,6 +61,9 @@ export function AttachmentsSection({
   }) => {
     assertWithinSizeLimit(asset.name, asset.size);
     const body = await (await fetch(asset.uri)).arrayBuffer();
+    // Picker size metadata is optional on both native APIs. Check the bytes we
+    // actually read as well so an oversized file never reaches Storage.
+    assertWithinSizeLimit(asset.name, body.byteLength);
     await upload.mutateAsync({
       householdId,
       itemId,

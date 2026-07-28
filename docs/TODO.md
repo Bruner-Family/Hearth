@@ -42,8 +42,8 @@ for individual product improvements.
     stays distinguishable. The name is stored in `attachments.file_name`
     (migration `20260728000001_attachment_file_name.sql`) because
     `storage_path` is sanitized (`storageSafeName` in `src/lib/attachments.ts`)
-    and can't round-trip something like "Manual (2019) — LG.pdf". Rows written
-    before the column fall back to a name derived from the path.
+    and can't round-trip something like "Manual (2019) — LG.pdf". The migration
+    backfills names for existing rows while the old key format is unambiguous.
   - Files over the bucket's 10 MiB limit are rejected client-side with a named
     error instead of an opaque storage failure.
 
@@ -55,9 +55,10 @@ for individual product improvements.
   deleted from — exactly one place.
   - Attaching needs the log row to exist (composite FK), so it is the edit
     screen only; "Log maintenance" still saves and returns to the item.
-  - Deleting a log or item first removes its attachment objects from storage
-    (`purgeAttachmentObjects` in `src/lib/queries.ts`); `on delete cascade`
-    reaches the rows but not the bucket.
+  - Deleting a log or item captures its attachment paths, deletes the database
+    parent and cascading rows, then removes the objects from storage. A failed
+    database delete therefore leaves every attachment intact; a later storage
+    failure can only leave a recoverable orphan.
 
 ## Security
 
