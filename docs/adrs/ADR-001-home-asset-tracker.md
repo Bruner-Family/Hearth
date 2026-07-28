@@ -86,7 +86,8 @@ items                 (id, household_id, category_id, name, location,        -- 
 maintenance_logs      (id, item_id, performed_on, cost_cents, performed_by,  -- "self", "ABC Plumbing"
                        notes, created_by, created_at)
 attachments           (id, item_id, maintenance_log_id NULL,                 -- receipts, manuals, photos
-                       storage_path, mime_type, created_by, created_at)
+                       storage_path, mime_type, file_name NULL,
+                       created_by, created_at)
 household_invites     (id, household_id, email, invited_by, status
                        ['pending','accepted','revoked'], expires_at, created_at)
 ```

@@ -1,3 +1,4 @@
+import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import {
@@ -11,31 +12,69 @@ import {
 } from "react-native";
 
 import { Button, ErrorNote, SectionTitle } from "@/components/ui";
+import {
+  assertWithinSizeLimit,
+  attachmentDisplayName,
+  DOCUMENT_MIME_TYPE,
+} from "@/lib/attachments";
 import type { Attachment } from "@/lib/database.types";
 import {
   useAttachments,
   useAttachmentUrl,
   useDeleteAttachment,
+  useLogAttachments,
   useUploadAttachment,
 } from "@/lib/queries";
 
+type AttachmentsSectionProps = {
+  householdId: string;
+  itemId: string;
+  /**
+   * When set, files are filed under this maintenance log entry (receipt,
+   * service report) instead of the item itself.
+   */
+  maintenanceLogId?: string;
+};
+
 /**
- * Receipt photos & manuals (ADR-001 §2.4). Phone camera → receipt photo is
- * the killer convenience for the data-entry story, so camera is offered
- * first on mobile.
+ * Receipt photos, manuals & documents (ADR-001 §2.4). Phone camera → receipt
+ * photo is the killer convenience for the data-entry story, so camera is
+ * offered first on mobile; PDFs come in through the document picker.
  */
 export function AttachmentsSection({
   householdId,
   itemId,
-}: {
-  householdId: string;
-  itemId: string;
-}) {
-  const { data: attachments = [] } = useAttachments(itemId);
+  maintenanceLogId,
+}: AttachmentsSectionProps) {
+  const itemAttachments = useAttachments(maintenanceLogId ? undefined : itemId);
+  const logAttachments = useLogAttachments(maintenanceLogId);
+  const attachments =
+    (maintenanceLogId ? logAttachments.data : itemAttachments.data) ?? [];
   const upload = useUploadAttachment();
   const [error, setError] = useState<string>();
 
-  const addFrom = async (source: "camera" | "library") => {
+  const add = async (asset: {
+    uri: string;
+    name: string;
+    mimeType: string;
+    size?: number;
+  }) => {
+    assertWithinSizeLimit(asset.name, asset.size);
+    const body = await (await fetch(asset.uri)).arrayBuffer();
+    // Picker size metadata is optional on both native APIs. Check the bytes we
+    // actually read as well so an oversized file never reaches Storage.
+    assertWithinSizeLimit(asset.name, body.byteLength);
+    await upload.mutateAsync({
+      householdId,
+      itemId,
+      maintenanceLogId,
+      fileName: asset.name,
+      mimeType: asset.mimeType,
+      body,
+    });
+  };
+
+  const addPhoto = async (source: "camera" | "library") => {
     setError(undefined);
     try {
       const options: ImagePicker.ImagePickerOptions = {
@@ -53,14 +92,35 @@ export function AttachmentsSection({
       if (result.canceled || !result.assets[0]) return;
 
       const asset = result.assets[0];
-      const body = await (await fetch(asset.uri)).arrayBuffer();
       const mimeType = asset.mimeType ?? "image/jpeg";
-      await upload.mutateAsync({
-        householdId,
-        itemId,
-        fileName: asset.fileName ?? `photo.${mimeType.split("/")[1] ?? "jpg"}`,
+      await add({
+        uri: asset.uri,
+        name: asset.fileName ?? `photo.${mimeType.split("/")[1] ?? "jpg"}`,
         mimeType,
-        body,
+        size: asset.fileSize,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    }
+  };
+
+  const addDocument = async () => {
+    setError(undefined);
+    try {
+      // PDF only: the storage bucket's allowed_mime_types rejects anything
+      // else, so filtering here beats failing after the picker.
+      const result = await DocumentPicker.getDocumentAsync({
+        type: DOCUMENT_MIME_TYPE,
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets[0]) return;
+
+      const asset = result.assets[0];
+      await add({
+        uri: asset.uri,
+        name: asset.name,
+        mimeType: asset.mimeType ?? DOCUMENT_MIME_TYPE,
+        size: asset.size,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
@@ -78,7 +138,9 @@ export function AttachmentsSection({
         </View>
       ) : (
         <Text className="mb-3 text-sm text-ink-dim">
-          No receipts, manuals, or photos yet.
+          {maintenanceLogId
+            ? "No receipt or service report on this entry yet."
+            : "No receipts, manuals, or photos yet."}
         </Text>
       )}
       {error ? <ErrorNote message={error} /> : null}
@@ -89,7 +151,7 @@ export function AttachmentsSection({
               title="Take photo"
               variant="secondary"
               loading={upload.isPending}
-              onPress={() => addFrom("camera")}
+              onPress={() => addPhoto("camera")}
             />
           </View>
         ) : null}
@@ -98,9 +160,17 @@ export function AttachmentsSection({
             title="Add photo"
             variant="secondary"
             loading={upload.isPending}
-            onPress={() => addFrom("library")}
+            onPress={() => addPhoto("library")}
           />
         </View>
+      </View>
+      <View className="mt-3">
+        <Button
+          title="Add document (PDF)"
+          variant="secondary"
+          loading={upload.isPending}
+          onPress={addDocument}
+        />
       </View>
     </View>
   );
@@ -109,6 +179,8 @@ export function AttachmentsSection({
 function AttachmentThumb({ attachment }: { attachment: Attachment }) {
   const { data: url } = useAttachmentUrl(attachment.storage_path);
   const del = useDeleteAttachment();
+  const isImage = attachment.mime_type.startsWith("image/");
+  const name = attachmentDisplayName(attachment);
 
   const confirmDelete = () => {
     if (Platform.OS === "web") {
@@ -116,7 +188,7 @@ function AttachmentThumb({ attachment }: { attachment: Attachment }) {
       if (window.confirm("Delete this attachment?")) del.mutate(attachment);
       return;
     }
-    Alert.alert("Delete attachment?", undefined, [
+    Alert.alert("Delete attachment?", name, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -129,16 +201,26 @@ function AttachmentThumb({ attachment }: { attachment: Attachment }) {
   return (
     <Pressable
       accessibilityRole="imagebutton"
+      accessibilityLabel={name}
       accessibilityHint="Opens the attachment; long-press to delete"
       onPress={() => url && Linking.openURL(url)}
       onLongPress={confirmDelete}
       className="active:opacity-70"
     >
       <View className="h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-edge bg-card">
-        {url && attachment.mime_type.startsWith("image/") ? (
+        {url && isImage ? (
           <Image source={{ uri: url }} className="h-24 w-24" />
         ) : (
-          <Text className="text-3xl">📄</Text>
+          // Documents look alike, so the name is what tells them apart.
+          <View className="items-center px-1.5">
+            <Text className="text-2xl">📄</Text>
+            <Text
+              numberOfLines={2}
+              className="mt-1 text-center text-[10px] leading-tight text-ink-dim"
+            >
+              {name}
+            </Text>
+          </View>
         )}
       </View>
     </Pressable>

@@ -100,6 +100,8 @@ export type Attachment = {
   maintenance_log_id: string | null;
   storage_path: string;
   mime_type: string;
+  /** Original name as picked; null for rows predating the column. */
+  file_name: string | null;
   created_by: string;
   created_at: string;
 };

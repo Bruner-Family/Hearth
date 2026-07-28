@@ -32,35 +32,33 @@ for individual product improvements.
 
 ## Attachments
 
-- [ ] **Attach a PDF or document alongside photos.** Appliances and items
-  usually ship with a receipt, manual, or warranty document as a PDF; we
-  should be able to associate those with an item, not just photos.
-  - **Target release: v1.5 "At the Appliance"** — grouped with reference
-    details and QR labels as item reference material in hand at the
-    equipment (roadmap
-    [spec](superpowers/specs/2026-06-11-hearth-feature-roadmap-design.md) §3
-    v1.5, decided 2026-06-13).
-  - Most of the stack already supports it: `attachments` stores an arbitrary
-    `mime_type` + `storage_path` (no image assumption), `useUploadAttachment`
-    (`src/lib/queries.ts`) uploads any `mimeType`/`body`, and
-    `AttachmentThumb` (`src/components/AttachmentsSection.tsx`) already renders
-    a 📄 fallback for non-image types and opens them via `Linking.openURL`.
-  - The gap is the **picker**: `AttachmentsSection` only offers
-    `expo-image-picker` with `mediaTypes: "images"`, so there's no way to
-    select a PDF/document. Add an "Add document" button backed by
-    `expo-document-picker` (the upload/render path is unchanged), and show the
-    file name on non-image thumbs so a wall of 📄 icons stays distinguishable.
+- [x] **Attach a PDF or document alongside photos.** Done:
+  `AttachmentsSection` (`src/components/AttachmentsSection.tsx`) has an "Add
+  document (PDF)" button backed by `expo-document-picker`. PDF only — the
+  `attachments` bucket's `allowed_mime_types` (migration
+  `20260610000004_storage.sql`) rejects anything else, so the picker filters
+  rather than letting the upload fail after the fact.
+  - Non-image thumbs now show the file name under the 📄 so a wall of icons
+    stays distinguishable. The name is stored in `attachments.file_name`
+    (migration `20260728000001_attachment_file_name.sql`) because
+    `storage_path` is sanitized (`storageSafeName` in `src/lib/attachments.ts`)
+    and can't round-trip something like "Manual (2019) — LG.pdf". The migration
+    backfills names for existing rows while the old key format is unambiguous.
+  - Files over the bucket's 10 MiB limit are rejected client-side with a named
+    error instead of an opaque storage failure.
 
-- [ ] **Attach files to individual maintenance log entries.** Let a maintenance
-  log entry (receipt, service report, PDF, photo) carry its own attachments,
-  not just the parent item. The `attachments` table and upload path are already
-  type-agnostic and `AttachmentsSection` (`src/components/AttachmentsSection.tsx`)
-  is built around an item; the work is parameterizing attachments to a log entry
-  (new nullable `maintenance_log_id` link + a log-scoped `AttachmentsSection`
-  on the log edit screen at `items/[id]/log/[logId]`). Surfaced by the
-  edit/delete log work
-  ([spec](superpowers/specs/2026-06-22-edit-delete-maintenance-log-design.md),
-  2026-06-22).
+- [x] **Attach files to individual maintenance log entries.** Done: the log
+  edit screen (`items/[id]/log/[logId]`) renders a log-scoped
+  `AttachmentsSection`, using the `attachments.maintenance_log_id` link the
+  initial schema already carried. Item-level attachments (`useAttachments`)
+  now filter to `maintenance_log_id is null`, so a file appears — and is
+  deleted from — exactly one place.
+  - Attaching needs the log row to exist (composite FK), so it is the edit
+    screen only; "Log maintenance" still saves and returns to the item.
+  - Deleting a log or item captures its attachment paths, deletes the database
+    parent and cascading rows, then removes the objects from storage. A failed
+    database delete therefore leaves every attachment intact; a later storage
+    failure can only leave a recoverable orphan.
 
 ## Security
 

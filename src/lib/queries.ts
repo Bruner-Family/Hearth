@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { attachmentStoragePath } from "@/lib/attachments";
 import type {
   Attachment,
   Database,
@@ -142,8 +143,10 @@ export function useDeleteItem() {
         demoDb.deleteItem(item.id);
         return item;
       }
+      const attachmentPaths = await attachmentObjectPaths("item_id", item.id);
       const { error } = await supabase.from("items").delete().eq("id", item.id);
       if (error) throw error;
+      await removeAttachmentObjects(attachmentPaths);
       return item;
     },
     onSuccess: (item) => invalidate(item),
@@ -282,16 +285,22 @@ export function useDeleteLog() {
         demoDb.deleteLog(log.id);
         return log;
       }
+      const attachmentPaths = await attachmentObjectPaths(
+        "maintenance_log_id",
+        log.id,
+      );
       const { error } = await supabase
         .from("maintenance_logs")
         .delete()
         .eq("id", log.id);
       if (error) throw error;
+      await removeAttachmentObjects(attachmentPaths);
       return log;
     },
     onSuccess: (log) => {
       void qc.invalidateQueries({ queryKey: ["logs", log.item_id] });
       void qc.invalidateQueries({ queryKey: ["household-logs"] });
+      void qc.invalidateQueries({ queryKey: ["attachments", "log", log.id] });
     },
   });
 }
@@ -497,10 +506,15 @@ export function useSendTestNotification() {
 // Attachments (Supabase Storage, per-household path prefix — §2.4)
 // ---------------------------------------------------------------------------
 
+/**
+ * The item's own attachments. Log-scoped ones are excluded: they render under
+ * their maintenance entry (`useLogAttachments`) so a file never appears — or
+ * gets deleted from — two places.
+ */
 export function useAttachments(itemId: string | undefined) {
   const { enabled: demo } = useDemo();
   return useQuery({
-    queryKey: ["attachments", itemId],
+    queryKey: ["attachments", "item", itemId],
     enabled: !!itemId,
     queryFn: async (): Promise<Attachment[]> => {
       if (demo) return [];
@@ -508,11 +522,45 @@ export function useAttachments(itemId: string | undefined) {
         .from("attachments")
         .select("*")
         .eq("item_id", itemId!)
+        .is("maintenance_log_id", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
+}
+
+/** Attachments filed under one maintenance log entry (receipt, service report). */
+export function useLogAttachments(logId: string | undefined) {
+  const { enabled: demo } = useDemo();
+  return useQuery({
+    queryKey: ["attachments", "log", logId],
+    enabled: !!logId,
+    queryFn: async (): Promise<Attachment[]> => {
+      if (demo) return [];
+      const { data, error } = await supabase
+        .from("attachments")
+        .select("*")
+        .eq("maintenance_log_id", logId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+function useInvalidateAttachments() {
+  const qc = useQueryClient();
+  return (att: Pick<Attachment, "item_id" | "maintenance_log_id">) => {
+    void qc.invalidateQueries({
+      queryKey: ["attachments", "item", att.item_id],
+    });
+    if (att.maintenance_log_id) {
+      void qc.invalidateQueries({
+        queryKey: ["attachments", "log", att.maintenance_log_id],
+      });
+    }
+  };
 }
 
 export type UploadAttachmentArgs = {
@@ -527,11 +575,16 @@ export type UploadAttachmentArgs = {
 
 export function useUploadAttachment() {
   const { enabled: demo } = useDemo();
-  const qc = useQueryClient();
+  const invalidate = useInvalidateAttachments();
   return useMutation({
     mutationFn: async (args: UploadAttachmentArgs) => {
       if (demo) throw new Error("Attachments are disabled in the demo.");
-      const path = `${args.householdId}/${args.itemId}/${Date.now()}-${args.fileName}`;
+      // The readable name lives in file_name; the key gets a sanitized copy.
+      const path = attachmentStoragePath(
+        args.householdId,
+        args.itemId,
+        args.fileName,
+      );
       const { error: storageError } = await supabase.storage
         .from("attachments")
         .upload(path, args.body, { contentType: args.mimeType });
@@ -544,19 +597,23 @@ export function useUploadAttachment() {
           maintenance_log_id: args.maintenanceLogId ?? null,
           storage_path: path,
           mime_type: args.mimeType,
+          file_name: args.fileName,
         })
         .select()
         .single();
-      if (error) throw error;
+      if (error) {
+        // Don't strand the blob we just wrote when the row insert fails.
+        await supabase.storage.from("attachments").remove([path]);
+        throw error;
+      }
       return data;
     },
-    onSuccess: (att) =>
-      void qc.invalidateQueries({ queryKey: ["attachments", att.item_id] }),
+    onSuccess: (att) => invalidate(att),
   });
 }
 
 export function useDeleteAttachment() {
-  const qc = useQueryClient();
+  const invalidate = useInvalidateAttachments();
   return useMutation({
     mutationFn: async (att: Attachment) => {
       const { error } = await supabase
@@ -567,9 +624,39 @@ export function useDeleteAttachment() {
       await supabase.storage.from("attachments").remove([att.storage_path]);
       return att;
     },
-    onSuccess: (att) =>
-      void qc.invalidateQueries({ queryKey: ["attachments", att.item_id] }),
+    onSuccess: (att) => invalidate(att),
   });
+}
+
+/**
+ * Capture the storage objects for attachment rows before a parent delete.
+ * The database row is deleted before its objects so a failed database request
+ * can never leave visible attachment records pointing at destroyed files.
+ */
+async function attachmentObjectPaths(
+  column: "item_id" | "maintenance_log_id",
+  id: string,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("attachments")
+    .select("storage_path")
+    .eq(column, id);
+  if (error) throw error;
+  return data.map((row) => row.storage_path);
+}
+
+async function removeAttachmentObjects(paths: string[]) {
+  if (paths.length === 0) return;
+  const { error: removeError } = await supabase.storage
+    .from("attachments")
+    .remove(paths);
+  // The parent deletion has already committed. Treat cleanup as best-effort so
+  // the UI does not report that deletion failed or retain stale parent data.
+  // A failed cleanup leaves recoverable orphaned storage, never a live row
+  // pointing at a destroyed file.
+  if (removeError) {
+    console.error("Failed to remove orphaned attachment objects", removeError);
+  }
 }
 
 export function useAttachmentUrl(storagePath: string) {

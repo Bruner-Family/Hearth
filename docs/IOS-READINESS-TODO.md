@@ -67,9 +67,11 @@ real household members.
     locale-aware to display, and continue to store ISO values.
 
 - [ ] **Finish native attachment capture.**
-  - Add the existing document-picker backlog for PDF receipts, manuals, and
-    warranties.
-  - Show file names, type, upload progress, and actionable size/type errors.
+  - Done on web: `expo-document-picker` for PDF receipts, manuals, and
+    warranties; file names on non-image thumbs; a named 10 MiB rejection
+    before upload. Still needs verification on device.
+  - Show upload progress — the picker-to-uploaded gap is currently a spinner
+    with no indication of how far along a large file is.
   - Downscale large camera photos before upload and verify HEIC behavior.
   - Add explicit, human-readable camera and photo-library permission copy in
     app configuration.
@@ -77,13 +79,16 @@ real household members.
     permissions, 10 MiB rejection, slow upload, and retry all behave clearly.
 
 - [ ] **Make attachment writes failure-safe.**
-  - Current evidence: `useUploadAttachment` uploads the object before inserting
-    its database row, but does not remove the object if the row insert fails.
-    Delete removes the row first and ignores a later storage-delete error.
-  - Add compensating cleanup or a server-side operation and record/reconcile
-    orphaned objects.
-  - Use collision-resistant object names rather than `Date.now()` alone and
-    sanitize file names used in paths.
+  - Current evidence: `useUploadAttachment` now removes the object it just
+    wrote if the row insert fails. `useDeleteItem` / `useDeleteLog` now delete
+    the database parent before storage cleanup, so a database failure cannot
+    destroy live attachment data. Still open: delete can leave an orphan when
+    later storage cleanup fails, and a compensating upload cleanup that itself
+    fails has the same result.
+  - Move the multi-step writes server-side, or record/reconcile orphaned
+    objects.
+  - Done: object names carry a random suffix alongside `Date.now()`, and file
+    names are sanitized before use in paths (`src/lib/attachments.ts`).
   - **Done when:** forced failure at each step leaves either a complete
     attachment or no attachment, never an undiscoverable private object.
 
