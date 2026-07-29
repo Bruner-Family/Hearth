@@ -62,16 +62,14 @@ for individual product improvements.
 
 ## Security
 
-- [ ] **Server-enforce immutability of server-managed columns.** `created_by`
-  and `created_at` on `maintenance_logs` (and `items` / `maintenance_schedules`)
-  are only protected from client tampering by convention — the client ships the
-  Supabase anon key, so RLS is the real boundary, and the current
-  `*_rw ... for all` policies allow a household member to rewrite these columns
-  via a direct API call. Tighten with an RLS `with check` guard or a
-  column-level `REVOKE UPDATE` so the server enforces the invariant. The
-  `useUpdate*` hooks already allow-list editable fields client-side, but that is
-  defense against our own bugs, not authorization. Surfaced by the commit
-  security review during the edit/delete log work (2026-06-22).
+- [x] **Server-enforce immutability of server-managed columns.** Done:
+  migration `20260729000001_server_managed_columns.sql` replaces table-wide
+  `INSERT` / `UPDATE` privileges on `items`, `maintenance_logs`, and
+  `maintenance_schedules` with explicit client-managed column grants.
+  Authenticated clients cannot forge or rewrite creator/timestamp fields, move
+  existing rows between households/items, or write schedule completion
+  metadata directly. `server_managed_columns.test.sql` covers allowed writes
+  and rejected tampering; the full 69-test pgTAP suite passes.
 
 ## Storage
 
