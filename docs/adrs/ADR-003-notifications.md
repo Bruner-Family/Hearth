@@ -4,7 +4,7 @@
 |------------|-----------------------------------|
 |**Status**  |Accepted                           |
 |**Date**    |2026-06-13                         |
-|**Relates** |ADR-001 (architecture), roadmap §3 v1.3|
+|**Relates** |ADR-001 (architecture), roadmap §3 v1.3, [ADR-004](ADR-004-per-schedule-reminders.md) (proposed successor for schedule cadence)|
 
 ## Context
 
@@ -36,4 +36,5 @@ ADR-001's "serverless stays serverless."
   (a bearer-credential exposure within the household trust boundary). Accepted
   for v1.3; a future hardening could move tokens to Vault or an owner-only view.
 - A daily cadence or per-user preferences would require the ledger and a
-  schema change; deferred (spec: not in v1.3).
+  schema change; deferred (spec: not in v1.3). ADR-004 proposes that ledger
+  and per-schedule hourly, daily, or weekly reminder behavior.
