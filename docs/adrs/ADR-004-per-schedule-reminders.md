@@ -64,20 +64,31 @@ Add these client-managed fields to `maintenance_schedules`:
 
 `reminder_lead_days` is constrained to `0..365`. Existing schedules are
 backfilled from their household's current `lead_time_days`, falling back to
-14, and use `weekly` frequency so the migration preserves the existing
-cadence. New schedules default to enabled, 14 days, and weekly unless the user
+14, and use `weekly` frequency so the migration preserves the existing weekly
+repeat rate. It does not preserve the legacy Monday 13:00 UTC delivery
+instant: each schedule re-anchors to its own lead boundary at the household's
+`reminder_time`, so a migrated schedule can change day of week and time of
+day. New schedules default to enabled, 14 days, and weekly unless the user
 chooses otherwise.
 
 Add these owner-managed fields to `notification_settings`:
 
 | Field | Meaning |
 |---|---|
-| `time_zone text` | IANA time zone used to interpret due days and daily delivery. |
-| `reminder_time time` | Local time at which a due-day reminder window starts and daily or weekly reminders are delivered. |
-| `weekly_digest_enabled boolean` | Whether warranties and end-of-life notices remain in the quiet Monday digest. |
+| `time_zone text` | IANA time zone used to interpret due days and daily delivery. Not null, defaults to `UTC` for existing rows. |
+| `reminder_time time` | Local time at which a due-day reminder window starts and daily or weekly reminders are delivered. Not null, defaults to `09:00`. |
+| `weekly_digest_enabled boolean` | Whether warranties and end-of-life notices remain in the quiet Monday digest. Not null, defaults to true. |
 
 The application must offer valid IANA time zones. The database must also
 reject unknown values rather than trusting an arbitrary client string.
+
+The existing `notification_settings.enabled` flag stays the household master
+switch and gates both cron modes: when it is false the household produces no
+per-schedule reminders and no weekly digest, regardless of any schedule's
+`reminder_enabled`. `weekly_digest_enabled` only gates the Monday warranty and
+end-of-life digest and has no effect on per-schedule reminders. A household
+with no `notification_settings` row has no configured channels and therefore
+no reminders.
 
 The existing household `lead_time_days` remains the lead window for warranty
 and end-of-life digest entries. It is also the initial default presented when
@@ -94,14 +105,26 @@ due day, not an exact due instant. The first eligible instant is:
 in notification_settings.time_zone
 ```
 
+If `reminder_time` does not exist on that local day because of a
+daylight-saving gap, the first eligible instant is the first valid instant
+after the gap. If it occurs twice because of a fall-back, the earlier
+occurrence is used.
+
 The hourly worker may deliver up to one cron interval after that instant.
 
-- `hourly` means no more than one successful delivery per elapsed 60-minute
-  slot after the first eligible instant.
-- `daily` means one successful delivery per local calendar day at or after
+Slots are a grid derived only from current state, never from delivery
+history, so any worker computes the same `slot_at` for the same schedule. The
+grid anchor is the first eligible instant, or `snoozed_until` when a snooze
+has been set and has since passed (see §2.3):
+
+- `hourly` means one grid point every 60 minutes from the anchor, so no more
+  than one successful delivery per elapsed 60-minute slot.
+- `daily` means one grid point per local calendar day at or after
+  `reminder_time`, so one successful delivery per local day.
+- `weekly` means one grid point every seven local calendar days at or after
   `reminder_time`.
-- `weekly` means one successful delivery every seven local calendar days at
-  or after `reminder_time`.
+
+`slot_at` is the most recent grid point at or before `now()`.
 
 An overdue occurrence remains eligible until it is completed, snoozed,
 disabled, deleted, or its due date changes. Hourly reminders continue
@@ -120,11 +143,14 @@ The RPC must:
 2. Lock and validate the schedule without revealing foreign rows.
 3. Require a future timestamp no more than 365 days away. Longer suppression
    uses reminder disablement or the future pause feature.
-4. Update `snoozed_until` atomically.
+4. Accept an explicit null to clear a snooze, so a member can un-snooze a
+   schedule without completing it, disabling reminders, or editing `next_due`.
+5. Update `snoozed_until` atomically.
 
-While `snoozed_until > now()`, the occurrence is ineligible. When the snooze
-expires, it becomes immediately eligible; a successful delivery then starts
-the configured repeat interval again.
+While `snoozed_until > now()`, the occurrence is ineligible. Once the snooze
+timestamp has passed, it becomes the grid anchor from §2.2, so the schedule is
+immediately eligible again and the configured repeat interval runs from that
+instant. Clearing a snooze restores the first eligible instant as the anchor.
 
 Changing `next_due` clears `snoozed_until`. `complete_schedule` also clears it
 in the same transaction that advances `next_due`. This prevents a snooze for
@@ -143,7 +169,7 @@ minimum, each row records:
 | Field | Meaning |
 |---|---|
 | `id` | Delivery claim identifier. |
-| `schedule_id` | Schedule being reported; cascades on deletion. |
+| `schedule_id` | Schedule being reported; cascades on deletion, so deleting a schedule intentionally discards its delivery history. |
 | `occurrence_due_on` | Snapshot of `next_due` for the occurrence. |
 | `channel` | Discord, Telegram, or a future channel. |
 | `slot_at` | Canonical hourly, daily, or weekly delivery slot. |
@@ -152,15 +178,21 @@ minimum, each row records:
 | `attempt_count` / `last_error` | Retry diagnostics without message content or credentials. |
 
 A unique constraint on `(schedule_id, occurrence_due_on, channel, slot_at)`
-prevents two workers from claiming the same delivery slot. Authenticated
-clients receive no direct table privileges. Operational errors must not store
-webhook URLs, Telegram tokens, schedule notes, or other household content.
+prevents two workers from claiming the same delivery slot. A separate partial
+unique index on `(schedule_id, occurrence_due_on, channel)` restricted to
+unresolved statuses enforces the single-outstanding-claim rule below; the
+four-column constraint alone cannot express it. Authenticated clients receive
+no direct table privileges. Operational errors must not store webhook URLs,
+Telegram tokens, schedule notes, or other household content.
 
 A service-role database function claims eligible rows transactionally with a
 bounded batch size. It uses row locking and conflict-safe inserts, then returns
-only the claims won by that invocation. The Edge Function groups claims by
-household and channel, sends a compact reminder message, and marks every claim
-delivered or failed.
+only the claims won by that invocation. A conflicting row in a resolved
+non-terminal state is re-claimed rather than skipped: a `cancelled` row left by
+a snooze or completion, and a `failed` row still within its retry budget, must
+not permanently block their slot. A `delivered` row always blocks its slot.
+The Edge Function groups claims by household and channel, sends a compact
+reminder message, and marks every claim delivered or failed.
 
 Only one unresolved claim may exist for a schedule, occurrence, and channel.
 A failed slot is retried or abandoned before a newer cadence slot is claimed,
@@ -196,7 +228,11 @@ Keep one `notify` Edge Function with explicit cron modes:
 
 The cron secret remains in Supabase Vault and function secrets as specified by
 ADR-003. Cron mode is selected by a server-controlled request body, not by an
-unauthenticated client request.
+unauthenticated client request. The existing job in
+`supabase/cron/weekly-notifications.sql` posts an empty body, so a missing
+mode must keep meaning `weekly-digest`; the job is updated to send the mode
+explicitly and a second job is added for the hourly `schedule-reminders`
+invocation.
 
 Messages use cadence-neutral wording such as "Hearth reminders" instead of
 "this week in Hearth." When an application URL is available, each scheduled
@@ -215,7 +251,12 @@ transaction it must:
 4. Cancel outstanding, undelivered claims for the completed occurrence.
 
 Old delivery rows remain as operational history and cannot suppress the new
-occurrence because their `occurrence_due_on` differs.
+occurrence because their `occurrence_due_on` differs. Because `next_due` is
+client-writable, a member who edits it back to a previously notified date
+reuses that occurrence key and its `delivered` rows suppress the already-sent
+slots. Changing `next_due` therefore also cancels outstanding claims, and the
+residual suppression of already-delivered slots for a restored date is an
+accepted edge case rather than a separate occurrence identifier.
 
 The claim function and completion RPC both lock the schedule before changing
 its reminder state. A notification already handed to an external provider may
@@ -240,15 +281,19 @@ Roll out without a duplicate or missing-notification window:
 
 1. Add the schedule configuration, time-zone configuration, snooze state,
    ledger, indexes, RPCs, and grants. Backfill existing schedules to weekly.
-   Seed a weekly baseline for already-eligible occurrences so enabling the
-   hourly worker does not immediately resend the most recent legacy digest.
+   Add the three new schedule columns to the `authenticated` insert and update
+   column grants; `snoozed_until` gets no client grant.
 2. Deploy the `notify` function with both legacy and new modes. Fix delivery
    accounting so non-2xx provider responses are failures.
 3. Add schedule reminder fields and snooze actions to the application. Display
    the effective household time zone and clearly warn that hourly means every
    hour until action is taken.
-4. In one production rollout, remove schedules from
-   `notifications_digest` and enable the hourly reminder cron job.
+4. In one production rollout, remove schedules from `notifications_digest`,
+   seed a weekly baseline for already-eligible occurrences, and enable the
+   hourly reminder cron job. The baseline is seeded at cutover, not earlier:
+   the legacy Monday digest keeps sending schedule entries until this step, so
+   a baseline seeded in step 1 would have aged out and the first hourly run
+   would repeat a digest sent days before.
 5. Observe claim backlog, failures, provider rate limits, and duplicate rate
    before making hourly reminders broadly available.
 
@@ -271,7 +316,9 @@ Database and function tests must cover:
 - Independent results when one household or one channel fails.
 - HTTP success, rate limiting, client errors, server errors, timeouts, and
   lease-expiry retry.
-- Migration defaults that preserve existing weekly schedule behavior.
+- Un-snoozing, and re-claiming a slot whose previous claim was cancelled.
+- `notification_settings.enabled` false suppressing both cron modes.
+- Migration defaults that preserve the existing weekly repeat rate.
 - No duplicate schedule entry in the weekly warranty/end-of-life digest.
 
 ## 5. Consequences
