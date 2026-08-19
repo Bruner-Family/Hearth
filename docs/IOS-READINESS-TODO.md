@@ -271,6 +271,10 @@ real household members.
 ## P2: Mobile-first product enhancements
 
 - [ ] **Add per-user iOS notifications.**
+  - Use the server-owned reminder events proposed in
+    [ADR-004](adrs/ADR-004-per-schedule-reminders.md) as the source for future
+    per-user push delivery; keep recipient subscriptions and device tokens
+    separate from household reminder rules.
   - Store one or more device tokens per user with last-seen/platform metadata
     and removal of invalid tokens.
   - Let each member opt into due maintenance, warranty, and lifespan reminders.
@@ -300,6 +304,9 @@ real household members.
   - Never claim a schedule is completed until the server accepts it.
 
 - [ ] **Improve reminders and recurring maintenance.**
+  - Implement per-schedule lead time, hourly/daily/weekly retriggering, and
+    server-authoritative snooze behavior as proposed in
+    [ADR-004](adrs/ADR-004-per-schedule-reminders.md).
   - Add skip, snooze, pause, seasonal windows, and completion history.
   - Offer useful starter schedules based on item category without automatically
     enabling noisy reminders.
