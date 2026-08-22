@@ -20,7 +20,8 @@ export function ScheduleRow({
   showItem?: boolean;
 }) {
   const router = useRouter();
-  const days = daysUntil(schedule.next_due, new Date());
+  const now = new Date();
+  const days = daysUntil(schedule.next_due, now);
   const dueClass =
     days <= 0
       ? "text-danger"
@@ -48,6 +49,12 @@ export function ScheduleRow({
           {schedule.last_completed_on
             ? ` · last done ${formatDate(schedule.last_completed_on)}`
             : ""}
+          {!schedule.reminder_enabled
+            ? " · reminders off"
+            : schedule.snoozed_until &&
+                Date.parse(schedule.snoozed_until) > now.getTime()
+              ? " · snoozed"
+              : ""}
         </Text>
       </Pressable>
       <Text className={`text-xs ${dueClass}`}>

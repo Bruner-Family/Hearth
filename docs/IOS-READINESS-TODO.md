@@ -304,8 +304,8 @@ real household members.
   - Never claim a schedule is completed until the server accepts it.
 
 - [ ] **Improve reminders and recurring maintenance.**
-  - Implement per-schedule lead time, hourly/daily/weekly retriggering, and
-    server-authoritative snooze behavior as proposed in
+  - Per-schedule lead time, hourly/daily/weekly retriggering, and
+    server-authoritative snooze behavior are implemented by
     [ADR-004](adrs/ADR-004-per-schedule-reminders.md).
   - Add skip, snooze, pause, seasonal windows, and completion history.
   - Offer useful starter schedules based on item category without automatically

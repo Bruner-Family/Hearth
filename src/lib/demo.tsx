@@ -218,6 +218,10 @@ function seedSchedule(
     anchor_month: cadence.anchor_month ?? null,
     next_due,
     last_completed_on: null,
+    reminder_enabled: true,
+    reminder_lead_days: 14,
+    reminder_frequency: "weekly",
+    snoozed_until: null,
     notes: null,
     created_by: DEMO_USER_ID,
     created_at: createdAt,
@@ -511,6 +515,10 @@ export const demoDb = {
       anchor_month: values.anchor_month ?? null,
       next_due: values.next_due,
       last_completed_on: values.last_completed_on ?? null,
+      reminder_enabled: values.reminder_enabled ?? true,
+      reminder_lead_days: values.reminder_lead_days ?? 14,
+      reminder_frequency: values.reminder_frequency ?? "weekly",
+      snoozed_until: null,
       notes: values.notes ?? null,
       created_by: DEMO_USER_ID,
       created_at: now,
@@ -535,6 +543,32 @@ export const demoDb = {
 
   deleteSchedule: (id: string) => {
     db.schedules = db.schedules.filter((s) => s.id !== id);
+  },
+
+  snoozeSchedule: (id: string, snoozeDays: number | null) => {
+    // Demo mode has no notification settings, so this mirrors the UTC 09:00
+    // defaults the edit screen displays.
+    const now = new Date();
+    const snoozedUntil =
+      snoozeDays == null
+        ? null
+        : new Date(
+            Date.UTC(
+              now.getUTCFullYear(),
+              now.getUTCMonth(),
+              now.getUTCDate() + snoozeDays,
+              9,
+            ),
+          ).toISOString();
+    db.schedules = db.schedules.map((schedule) =>
+      schedule.id === id
+        ? {
+            ...schedule,
+            snoozed_until: snoozedUntil,
+            updated_at: new Date().toISOString(),
+          }
+        : schedule,
+    );
   },
 
   /** Mirrors the complete_schedule RPC: log entry (item schedules) + advance. */
@@ -563,6 +597,7 @@ export const demoDb = {
             ...s,
             next_due: newNextDue,
             last_completed_on: args.performed_on,
+            snoozed_until: null,
             updated_at: new Date().toISOString(),
           }
         : s,

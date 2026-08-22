@@ -57,7 +57,8 @@ psql "$LOCAL_DB_URL" -v ON_ERROR_STOP=1 <<'TRUNCATE_SQL'
 set session_replication_role = replica;
 -- public: truncate leaf tables first, then roots, relying on replica mode to
 -- skip FK checks so a single pass in any order works.
-truncate table public.attachments, public.maintenance_logs,
+truncate table public.schedule_notification_deliveries,
+  public.attachments, public.maintenance_logs,
   public.maintenance_schedules, public.notification_settings,
   public.household_invites, public.household_members,
   public.items, public.households, public.item_categories

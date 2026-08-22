@@ -8,6 +8,9 @@ const base = {
   telegram_bot_token: "",
   telegram_chat_id: "",
   lead_time_days: "14",
+  time_zone: "America/Chicago",
+  reminder_time: "09:00",
+  weekly_digest_enabled: true,
 };
 
 describe("notificationSettingsFormSchema", () => {
@@ -61,5 +64,16 @@ describe("notificationSettingsFormSchema", () => {
   it("rejects lead time outside 1–90", () => {
     expect(notificationSettingsFormSchema.safeParse({ ...base, lead_time_days: "0" }).success).toBe(false);
     expect(notificationSettingsFormSchema.safeParse({ ...base, lead_time_days: "91" }).success).toBe(false);
+  });
+
+  it("rejects an unknown time zone and malformed reminder time", () => {
+    expect(
+      notificationSettingsFormSchema.safeParse({ ...base, time_zone: "Mars/Olympus" })
+        .success,
+    ).toBe(false);
+    expect(
+      notificationSettingsFormSchema.safeParse({ ...base, reminder_time: "25:00" })
+        .success,
+    ).toBe(false);
   });
 });

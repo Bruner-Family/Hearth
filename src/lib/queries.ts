@@ -400,6 +400,35 @@ export function useDeleteSchedule() {
   });
 }
 
+export function useSnoozeSchedule() {
+  const { enabled: demo } = useDemo();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      schedule,
+      snooze_days,
+    }: {
+      schedule: MaintenanceSchedule;
+      snooze_days: number | null;
+    }) => {
+      if (demo) {
+        demoDb.snoozeSchedule(schedule.id, snooze_days);
+        return schedule;
+      }
+      const { error } = await supabase.rpc("snooze_schedule", {
+        schedule_id: schedule.id,
+        snooze_days,
+      });
+      if (error) throw error;
+      return schedule;
+    },
+    onSuccess: (schedule) =>
+      void qc.invalidateQueries({
+        queryKey: ["schedules", schedule.household_id],
+      }),
+  });
+}
+
 export type CompleteScheduleArgs = {
   schedule: ScheduleWithItem;
   performed_on: string;
@@ -492,6 +521,7 @@ export function useUpsertNotificationSettings() {
 
 /** Fires the notify function in test mode for the owner's household. */
 export function useSendTestNotification() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async (householdId: string) => {
       const { error } = await supabase.functions.invoke("notify", {
@@ -499,6 +529,10 @@ export function useSendTestNotification() {
       });
       if (error) throw error;
     },
+    onSettled: (_data, _error, householdId) =>
+      void qc.invalidateQueries({
+        queryKey: ["notification-settings", householdId],
+      }),
   });
 }
 

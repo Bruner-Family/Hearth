@@ -108,15 +108,15 @@ from alice_household a, public.item_categories c where c.name = 'Washer';
 select results_eq(
   $$ select count(*)::int
      from public.notifications_digest((select household_id from alice_household), 14) $$,
-  $$ values (3) $$,
-  'digest returns the overdue schedule + expiring warranty + the end-of-life furnace, not the healthy washer'
+  $$ values (2) $$,
+  'digest returns the expiring warranty and end-of-life item, not schedules or the healthy washer'
 );
 
 select results_eq(
   $$ select kind from public.notifications_digest((select household_id from alice_household), 14)
      order by kind $$,
-  $$ values ('end_of_life'::text), ('schedule'::text), ('warranty'::text) $$,
-  'digest reports one of each expected kind'
+  $$ values ('end_of_life'::text), ('warranty'::text) $$,
+  'digest reports only the two weekly signal kinds'
 );
 
 select is_empty(
@@ -135,16 +135,16 @@ select results_eq(
   $$ select count(*)::int
      from public.notifications_digest((select household_id from alice_household), 14)
      where kind = 'schedule' $$,
-  $$ values (1) $$,
-  '14-day lead excludes a schedule due in 20 days'
+  $$ values (0) $$,
+  'weekly digest excludes all schedule entries at a 14-day lead'
 );
 
 select results_eq(
   $$ select count(*)::int
      from public.notifications_digest((select household_id from alice_household), 30)
      where kind = 'schedule' $$,
-  $$ values (2) $$,
-  '30-day lead includes the schedule due in 20 days'
+  $$ values (0) $$,
+  'weekly digest still excludes all schedule entries at a 30-day lead'
 );
 
 -- The digest is service-role only (the Edge Function); a signed-in user must
