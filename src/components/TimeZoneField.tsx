@@ -4,6 +4,10 @@ import { Field } from "@/components/ui";
 import { deviceTimeZone, supportedTimeZones } from "@/lib/timeZones";
 import { useTheme } from "@/lib/theme";
 
+// The IANA list cannot change during a session, so it is built once instead of
+// on every keystroke in the combobox.
+const TIME_ZONE_OPTIONS = supportedTimeZones();
+
 export function TimeZoneField({
   value,
   onChange,
@@ -18,7 +22,6 @@ export function TimeZoneField({
   const { scheme } = useTheme();
 
   if (Platform.OS === "web") {
-    const options = supportedTimeZones();
     return (
       <View className="mb-4">
         <Text className="mb-1.5 text-sm font-medium text-ink">Time zone</Text>
@@ -33,7 +36,7 @@ export function TimeZoneField({
           style={{ colorScheme: scheme, font: "inherit" }}
         />
         <datalist id="hearth-time-zones">
-          {options.map((timeZone) => (
+          {TIME_ZONE_OPTIONS.map((timeZone) => (
             <option key={timeZone} value={timeZone} />
           ))}
         </datalist>

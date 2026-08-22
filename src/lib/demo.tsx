@@ -545,7 +545,21 @@ export const demoDb = {
     db.schedules = db.schedules.filter((s) => s.id !== id);
   },
 
-  snoozeSchedule: (id: string, snoozedUntil: string | null) => {
+  snoozeSchedule: (id: string, snoozeDays: number | null) => {
+    // Demo mode has no notification settings, so this mirrors the UTC 09:00
+    // defaults the edit screen displays.
+    const now = new Date();
+    const snoozedUntil =
+      snoozeDays == null
+        ? null
+        : new Date(
+            Date.UTC(
+              now.getUTCFullYear(),
+              now.getUTCMonth(),
+              now.getUTCDate() + snoozeDays,
+              9,
+            ),
+          ).toISOString();
     db.schedules = db.schedules.map((schedule) =>
       schedule.id === id
         ? {

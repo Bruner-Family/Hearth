@@ -114,8 +114,9 @@ The hourly worker may deliver up to one cron interval after that instant.
 
 Slots are a grid derived only from current state, never from delivery
 history, so any worker computes the same `slot_at` for the same schedule. The
-grid anchor is the first eligible instant, or `snoozed_until` when a snooze
-has been set and has since passed (see §2.3):
+grid anchor is the later of the first eligible instant and a `snoozed_until`
+that has since passed (see §2.3), so a snooze set before the lead window opens
+cannot pull the first reminder forward:
 
 - `hourly` means one grid point every 60 minutes from the anchor, so no more
   than one successful delivery per elapsed 60-minute slot.
@@ -134,23 +135,26 @@ user. Quiet hours may be added later as a separate preference.
 ### 2.3 Snooze state
 
 Add `snoozed_until timestamptz` to `maintenance_schedules`. It is server-owned:
-clients change it through a `snooze_schedule(schedule_id, snoozed_until)` RPC,
-not through a direct column grant.
+clients change it through a `snooze_schedule(schedule_id, snooze_days)` RPC,
+not through a direct column grant. The RPC takes a day count rather than an
+instant so the household time zone, the reminder time, and the DST rules that
+resolve them stay in one implementation.
 
 The RPC must:
 
 1. Require an authenticated household member.
 2. Lock and validate the schedule without revealing foreign rows.
-3. Require a future timestamp no more than 365 days away. Longer suppression
-   uses reminder disablement or the future pause feature.
+3. Require between 1 and 365 days. Longer suppression uses reminder
+   disablement or the future pause feature.
 4. Accept an explicit null to clear a snooze, so a member can un-snooze a
    schedule without completing it, disabling reminders, or editing `next_due`.
-5. Update `snoozed_until` atomically.
+5. Resolve the day count to the reminder time in the household time zone and
+   update `snoozed_until` atomically.
 
 While `snoozed_until > now()`, the occurrence is ineligible. Once the snooze
-timestamp has passed, it becomes the grid anchor from §2.2, so the schedule is
-immediately eligible again and the configured repeat interval runs from that
-instant. Clearing a snooze restores the first eligible instant as the anchor.
+timestamp has passed, it becomes the grid anchor from §2.2 unless it precedes
+the first eligible instant, in which case the lead boundary still anchors the
+grid. Clearing a snooze restores the first eligible instant as the anchor.
 
 Changing `next_due` clears `snoozed_until`. `complete_schedule` also clears it
 in the same transaction that advances `next_due`. This prevents a snooze for

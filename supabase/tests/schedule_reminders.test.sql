@@ -2,7 +2,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(44);
+select plan(52);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values
@@ -113,14 +113,14 @@ select throws_ok(
 
 select lives_ok(
   $$ select public.snooze_schedule(
-       '20000000-0000-0000-0000-000000000001', now() + interval '1 day'
+       '20000000-0000-0000-0000-000000000001', 1
      ) $$,
   'a household member can snooze before the first reminder'
 );
 
 select lives_ok(
   $$ select public.snooze_schedule(
-       '20000000-0000-0000-0000-000000000001', null
+       '20000000-0000-0000-0000-000000000001', null::integer
      ) $$,
   'a household member can explicitly clear a snooze'
 );
@@ -129,7 +129,7 @@ select test_as('00000000-0000-0000-0000-000000000002', 'bob@example.com');
 
 select throws_ok(
   $$ select public.snooze_schedule(
-       '20000000-0000-0000-0000-000000000001', now() + interval '1 day'
+       '20000000-0000-0000-0000-000000000001', 1
      ) $$,
   'P0001', 'Schedule not found',
   'snooze does not reveal a foreign schedule'
@@ -209,6 +209,24 @@ select is(
   'initial eligibility begins exactly at the lead boundary'
 );
 
+select is(
+  private.schedule_reminder_slot(
+    '2026-12-01', 14, 'weekly', '2026-08-22T09:00:00Z', '09:00', 'UTC',
+    '2026-08-22T09:00:00Z'
+  ),
+  null::timestamptz,
+  'a snooze expiring before the lead window does not start reminders early'
+);
+
+select is(
+  private.schedule_reminder_slot(
+    '2026-12-01', 14, 'weekly', '2026-08-22T09:00:00Z', '09:00', 'UTC',
+    '2026-11-17T09:00:00Z'
+  ),
+  '2026-11-17T09:00:00Z'::timestamptz,
+  'an early snooze still yields the lead boundary as the first slot'
+);
+
 delete from public.maintenance_schedules;
 insert into public.maintenance_schedules (
   id, household_id, name, interval_months, next_due,
@@ -260,7 +278,7 @@ end $$;
 select test_as('00000000-0000-0000-0000-000000000001', 'alice@example.com');
 select lives_ok(
   $$ select public.snooze_schedule(
-       '20000000-0000-0000-0000-000000000101', now() + interval '1 day'
+       '20000000-0000-0000-0000-000000000101', 1
      ) $$,
   'snoozing after a claim succeeds'
 );
@@ -301,7 +319,7 @@ select results_eq(
 select test_as('00000000-0000-0000-0000-000000000001', 'alice@example.com');
 select lives_ok(
   $$ select public.snooze_schedule(
-       '20000000-0000-0000-0000-000000000101', null
+       '20000000-0000-0000-0000-000000000101', null::integer
      ) $$,
   'un-snoozing an occurrence succeeds'
 );
@@ -535,6 +553,39 @@ select results_eq(
   'a permanent channel error does not stop an independent healthy channel'
 );
 
+select results_eq(
+  $$ select discord_error is not null from public.notification_settings $$,
+  $$ values (true) $$,
+  'a telegram credential write leaves an unrelated discord error in place'
+);
+
+select test_as('00000000-0000-0000-0000-000000000001', 'alice@example.com');
+insert into public.notification_settings as settings (
+  household_id, enabled, discord_webhook_url, telegram_bot_token,
+  telegram_chat_id, lead_time_days, time_zone, reminder_time,
+  weekly_digest_enabled
+)
+select household_id, true, 'https://discord.example/webhook', 'token', 'chat',
+       21, 'UTC', '00:00', true
+from alice_household
+on conflict (household_id) do update set
+  household_id = excluded.household_id,
+  enabled = excluded.enabled,
+  discord_webhook_url = excluded.discord_webhook_url,
+  telegram_bot_token = excluded.telegram_bot_token,
+  telegram_chat_id = excluded.telegram_chat_id,
+  lead_time_days = excluded.lead_time_days,
+  time_zone = excluded.time_zone,
+  reminder_time = excluded.reminder_time,
+  weekly_digest_enabled = excluded.weekly_digest_enabled;
+reset role;
+
+select results_eq(
+  $$ select discord_error from public.notification_settings $$,
+  $$ values (null::text) $$,
+  're-saving an unchanged webhook re-enables a channel a failure disabled'
+);
+
 do $$ begin
   perform public.record_schedule_notification_result(
     (select id from public.schedule_notification_deliveries
@@ -542,6 +593,66 @@ do $$ begin
     true, null, null, 200, false, now()
   );
 end $$;
+
+-- A worker that dies between claiming and recording leaves a claimed row with
+-- an expired lease. It must still leave the outstanding-claim index even when
+-- its channel no longer appears in the claim query.
+insert into public.maintenance_schedules (
+  id, household_id, name, interval_months, next_due,
+  reminder_lead_days, reminder_frequency
+)
+select '20000000-0000-0000-0000-000000000108', household_id,
+       'Stranded task', 1, current_date, 0, 'daily'
+from alice_household;
+insert into public.schedule_notification_deliveries (
+  schedule_id, occurrence_due_on, channel, slot_at, status,
+  claimed_at, lease_expires_at, attempt_count
+) values (
+  '20000000-0000-0000-0000-000000000108', current_date, 'discord',
+  date_trunc('day', now()), 'claimed',
+  now() - interval '1 hour', now() - interval '50 minutes', 5
+);
+update public.notification_settings
+set discord_error = 'disabled by an earlier failure';
+
+do $$ begin
+  perform * from public.claim_schedule_notification_deliveries(10, now());
+end $$;
+
+select results_eq(
+  $$ select status::text from public.schedule_notification_deliveries
+     where schedule_id = '20000000-0000-0000-0000-000000000108'
+       and channel = 'discord' $$,
+  $$ values ('claimed'::text) $$,
+  'the hourly claim cannot reach a stranded row on a disabled channel'
+);
+
+select is(
+  public.cleanup_schedule_notification_deliveries(),
+  0::bigint,
+  'the daily job retires that stranded lease without deleting it yet'
+);
+
+select results_eq(
+  $$ select status::text, retryable from public.schedule_notification_deliveries
+     where schedule_id = '20000000-0000-0000-0000-000000000108'
+       and channel = 'discord' $$,
+  $$ values ('failed'::text, false) $$,
+  'an expired lease with no retry budget is retired even on a disabled channel'
+);
+
+update public.schedule_notification_deliveries
+set claimed_at = now() - interval '91 days'
+where schedule_id = '20000000-0000-0000-0000-000000000108'
+  and channel = 'telegram'
+  and status = 'claimed';
+
+select is(
+  public.cleanup_schedule_notification_deliveries(),
+  1::bigint,
+  'a row stranded in claimed is removed after 90 days'
+);
+
 update public.schedule_notification_deliveries
 set claimed_at = now() - interval '91 days',
     delivered_at = now() - interval '91 days'

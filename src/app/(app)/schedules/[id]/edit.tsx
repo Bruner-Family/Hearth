@@ -21,7 +21,6 @@ import {
   useSnoozeSchedule,
   useUpdateSchedule,
 } from "@/lib/queries";
-import { snoozeAtReminderTime } from "@/lib/reminders";
 import { usePalette } from "@/lib/theme";
 
 export default function EditScheduleScreen() {
@@ -73,15 +72,7 @@ export default function EditScheduleScreen() {
   const reminderTime = notificationSettings?.reminder_time ?? "09:00";
   const now = new Date();
   const setSnooze = (days: number) =>
-    snoozeSchedule.mutate({
-      schedule,
-      snoozed_until: snoozeAtReminderTime(
-        new Date(),
-        days,
-        timeZone,
-        reminderTime,
-      ),
-    });
+    snoozeSchedule.mutate({ schedule, snooze_days: days });
   const snoozeEnded =
     schedule.snoozed_until != null &&
     Date.parse(schedule.snoozed_until) <= now.getTime();
@@ -155,7 +146,7 @@ export default function EditScheduleScreen() {
                 variant="secondary"
                 loading={snoozeSchedule.isPending}
                 onPress={() =>
-                  snoozeSchedule.mutate({ schedule, snoozed_until: null })
+                  snoozeSchedule.mutate({ schedule, snooze_days: null })
                 }
               />
             </View>

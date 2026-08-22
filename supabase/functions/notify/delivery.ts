@@ -1,5 +1,3 @@
-import { discordBody, telegramBody } from "./format.ts";
-
 export type NotificationChannel = "discord" | "telegram";
 
 export type DeliverySettings = {
@@ -25,6 +23,14 @@ export type DeliveryResult = {
 };
 
 type Fetcher = (input: string, init: RequestInit) => Promise<Response>;
+
+export function discordBody(text: string): string {
+  return JSON.stringify({ content: text });
+}
+
+export function telegramBody(chatId: string, text: string): string {
+  return JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true });
+}
 
 function failed(
   errorCode: NonNullable<DeliveryResult["errorCode"]>,

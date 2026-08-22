@@ -7,7 +7,7 @@ import {
 } from "./delivery.ts";
 import {
   formatDigest,
-  formatScheduleReminders,
+  formatScheduleReminderMessages,
   type DigestRow,
   type ScheduleReminderRow,
 } from "./format.ts";
@@ -165,19 +165,24 @@ async function failClaims(
 }
 
 async function sendClaimGroup(db: AdminClient, claims: Claim[]) {
-  const active: Claim[] = [];
-  for (const claim of claims) {
-    const { data, error } = await db.rpc(
-      "revalidate_schedule_notification_claim",
-      { p_delivery_id: claim.delivery_id },
-    );
-    if (error) {
-      await failClaims(db, [claim], "Claim revalidation failed");
-    } else if (data) {
-      active.push(claim);
-    }
+  const verdicts = await Promise.all(
+    claims.map(async (claim) => {
+      const { data, error } = await db.rpc(
+        "revalidate_schedule_notification_claim",
+        { p_delivery_id: claim.delivery_id },
+      );
+      return { claim, valid: !error && !!data, errored: !!error };
+    }),
+  );
+  const active = verdicts.filter((v) => v.valid).map((v) => v.claim);
+  const errored = verdicts.filter((v) => v.errored).map((v) => v.claim);
+  const cancelled = claims.length - active.length - errored.length;
+  if (errored.length > 0) {
+    await failClaims(db, errored, "Claim revalidation failed");
   }
-  if (active.length === 0) return { delivered: 0, failed: 0, cancelled: claims.length };
+  if (active.length === 0) {
+    return { delivered: 0, failed: errored.length, cancelled };
+  }
 
   const first = active[0];
   const { data: settings, error } = await db
@@ -187,17 +192,29 @@ async function sendClaimGroup(db: AdminClient, claims: Claim[]) {
     .single();
   if (error || !settings) {
     await failClaims(db, active, "Notification settings could not be read");
-    return { delivered: 0, failed: active.length, cancelled: claims.length - active.length };
+    return { delivered: 0, failed: errored.length + active.length, cancelled };
   }
 
-  const text = formatScheduleReminders(first.household_name, active, APP_URL);
-  const result = await deliverMessage(first.channel, settings as Settings, text);
-  await Promise.all(active.map((claim) => recordResult(db, claim, result)));
-  return {
-    delivered: result.delivered ? active.length : 0,
-    failed: result.delivered ? 0 : active.length,
-    cancelled: claims.length - active.length,
-  };
+  const messages = formatScheduleReminderMessages(
+    first.household_name,
+    active,
+    APP_URL,
+  );
+  let delivered = 0;
+  let failed = errored.length;
+  for (const message of messages) {
+    const result = await deliverMessage(
+      first.channel,
+      settings as Settings,
+      message.text,
+    );
+    await Promise.all(
+      message.rows.map((claim) => recordResult(db, claim, result)),
+    );
+    if (result.delivered) delivered += message.rows.length;
+    else failed += message.rows.length;
+  }
+  return { delivered, failed, cancelled };
 }
 
 async function runScheduleReminders(db: AdminClient) {
@@ -209,7 +226,9 @@ async function runScheduleReminders(db: AdminClient) {
   const groups = new Map<string, Claim[]>();
   for (const claim of claims) {
     const key = `${claim.household_id}:${claim.channel}`;
-    groups.set(key, [...(groups.get(key) ?? []), claim]);
+    const group = groups.get(key);
+    if (group) group.push(claim);
+    else groups.set(key, [claim]);
   }
 
   const results = await Promise.all(

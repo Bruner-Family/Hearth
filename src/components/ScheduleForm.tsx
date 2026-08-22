@@ -74,6 +74,13 @@ export function ScheduleForm({
 
   const submit = handleSubmit((values) => {
     const anchor = values.cadence === "anchor" ? values.anchor_month : null;
+    // Validation only covers this field while reminders are on, so a retained
+    // invalid value falls back rather than reaching the column check as NaN.
+    const leadDays = Number(values.reminder_lead_days);
+    const reminder_lead_days =
+      /^\d{1,3}$/.test(values.reminder_lead_days) && leadDays <= 365
+        ? leadDays
+        : (initial?.reminder_lead_days ?? defaultReminderLeadDays);
     const next_due =
       values.cadence === "interval"
         ? values.next_due || todayISO()
@@ -87,7 +94,7 @@ export function ScheduleForm({
       anchor_month: anchor,
       next_due,
       reminder_enabled: values.reminder_enabled,
-      reminder_lead_days: Number(values.reminder_lead_days),
+      reminder_lead_days,
       reminder_frequency: values.reminder_frequency,
       notes: empty(values.notes),
     });

@@ -194,9 +194,9 @@ export type Database = {
       snooze_schedule: {
         Args: {
           schedule_id: string;
-          snoozed_until: string | null;
+          snooze_days: number | null;
         };
-        Returns: undefined;
+        Returns: string | null;
       };
     };
     Enums: Record<string, never>;

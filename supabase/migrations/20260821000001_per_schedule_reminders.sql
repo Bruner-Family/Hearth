@@ -38,26 +38,33 @@ create trigger notification_settings_validate_time_zone
   before insert or update of time_zone on public.notification_settings
   for each row execute function private.validate_notification_time_zone();
 
-create function private.clear_notification_channel_errors()
+-- Re-enables a channel that a permanent delivery failure switched off. Each
+-- trigger's column list restricts it to statements that write that channel's
+-- credentials, so re-saving an unchanged webhook still clears the error while
+-- the worker's own error writes (which never name credential columns) survive.
+create function private.clear_notification_channel_error()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
 begin
-  if new.discord_webhook_url is distinct from old.discord_webhook_url then
+  if tg_argv[0] = 'discord' then
     new.discord_error := null;
-  end if;
-  if new.telegram_bot_token is distinct from old.telegram_bot_token
-     or new.telegram_chat_id is distinct from old.telegram_chat_id then
+  else
     new.telegram_error := null;
   end if;
   return new;
 end;
 $$;
 
-create trigger notification_settings_clear_channel_errors
-  before update on public.notification_settings
-  for each row execute function private.clear_notification_channel_errors();
+create trigger notification_settings_clear_discord_error
+  before update of discord_webhook_url on public.notification_settings
+  for each row execute function private.clear_notification_channel_error('discord');
+
+create trigger notification_settings_clear_telegram_error
+  before update of telegram_bot_token, telegram_chat_id
+  on public.notification_settings
+  for each row execute function private.clear_notification_channel_error('telegram');
 
 alter table public.maintenance_schedules
   add column reminder_enabled boolean not null default true,
@@ -104,8 +111,7 @@ create unique index schedule_notification_deliveries_one_outstanding_idx
      or (status = 'failed' and retryable and attempt_count < 5);
 
 create index schedule_notification_deliveries_cleanup_idx
-  on public.schedule_notification_deliveries (claimed_at)
-  where status in ('delivered', 'failed', 'cancelled');
+  on public.schedule_notification_deliveries (claimed_at);
 
 alter table public.schedule_notification_deliveries enable row level security;
 revoke all on public.schedule_notification_deliveries from public, anon, authenticated;
@@ -180,17 +186,19 @@ declare
   elapsed_steps integer;
   slot_at timestamptz;
 begin
+  if p_snoozed_until is not null and p_snoozed_until > p_now then
+    return null;
+  end if;
+
   first_eligible := private.reminder_local_instant(
     p_next_due - p_lead_days,
     p_reminder_time,
     p_time_zone
   );
 
-  if p_snoozed_until is not null and p_snoozed_until > p_now then
-    return null;
-  end if;
-
-  anchor_at := coalesce(p_snoozed_until, first_eligible);
+  -- A snooze that expires before the lead window opens must not pull the first
+  -- reminder forward, so the anchor never precedes first_eligible.
+  anchor_at := greatest(coalesce(p_snoozed_until, first_eligible), first_eligible);
   if p_now < anchor_at then
     return null;
   end if;
@@ -313,17 +321,24 @@ create trigger notification_settings_cancel_schedule_claims
   after update on public.notification_settings
   for each row execute function private.cancel_household_notification_claims();
 
+-- Takes a day count rather than an instant so the household's time zone and
+-- reminder time resolve here, against the same DST rules the slot calculation
+-- uses. Null clears the snooze.
 create function public.snooze_schedule(
   schedule_id uuid,
-  snoozed_until timestamptz
-) returns void
+  snooze_days integer
+) returns timestamptz
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
   schedule public.maintenance_schedules%rowtype;
+  settings public.notification_settings%rowtype;
   v_now timestamptz := statement_timestamp();
+  v_time_zone text;
+  v_reminder_time time without time zone;
+  v_snoozed_until timestamptz;
 begin
   if auth.uid() is null then
     raise exception 'Not signed in';
@@ -338,15 +353,26 @@ begin
     raise exception 'Schedule not found';
   end if;
 
-  if snoozed_until is not null and (
-    snoozed_until <= v_now
-    or snoozed_until > v_now + interval '365 days'
-  ) then
-    raise exception 'Snooze must be in the future and no more than 365 days away';
+  if snooze_days is not null and (snooze_days < 1 or snooze_days > 365) then
+    raise exception 'Snooze must be between 1 and 365 days';
+  end if;
+
+  if snooze_days is not null then
+    select * into settings
+    from public.notification_settings
+    where household_id = schedule.household_id;
+
+    v_time_zone := coalesce(settings.time_zone, 'UTC');
+    v_reminder_time := coalesce(settings.reminder_time, '09:00');
+    v_snoozed_until := private.reminder_local_instant(
+      (v_now at time zone v_time_zone)::date + snooze_days,
+      v_reminder_time,
+      v_time_zone
+    );
   end if;
 
   update public.maintenance_schedules
-  set snoozed_until = snooze_schedule.snoozed_until
+  set snoozed_until = v_snoozed_until
   where id = schedule_id;
 
   update public.schedule_notification_deliveries as delivery
@@ -364,12 +390,14 @@ begin
         and delivery.attempt_count < 5
       )
     );
+
+  return v_snoozed_until;
 end;
 $$;
 
-revoke all on function public.snooze_schedule(uuid, timestamptz)
+revoke all on function public.snooze_schedule(uuid, integer)
   from public, anon;
-grant execute on function public.snooze_schedule(uuid, timestamptz)
+grant execute on function public.snooze_schedule(uuid, integer)
   to authenticated;
 
 create function public.claim_schedule_notification_deliveries(
@@ -580,8 +608,21 @@ set search_path = ''
 as $$
 declare
   delivery public.schedule_notification_deliveries%rowtype;
+  v_schedule_id uuid;
   valid_claim boolean;
 begin
+  -- Lock the schedule before the delivery row. claim_schedule_notification_
+  -- deliveries takes the same order, so a concurrent run cannot deadlock here.
+  select d.schedule_id into v_schedule_id
+  from public.schedule_notification_deliveries as d
+  where d.id = p_delivery_id;
+
+  if not found then
+    return false;
+  end if;
+
+  perform 1 from public.maintenance_schedules where id = v_schedule_id for update;
+
   select d.* into delivery
   from public.schedule_notification_deliveries as d
   where d.id = p_delivery_id
@@ -610,8 +651,7 @@ begin
   from public.maintenance_schedules as schedule
   join public.notification_settings as settings
     on settings.household_id = schedule.household_id
-  where schedule.id = delivery.schedule_id
-  for update of schedule;
+  where schedule.id = delivery.schedule_id;
 
   if coalesce(valid_claim, false) then
     return true;
@@ -735,9 +775,24 @@ as $$
 declare
   removed bigint;
 begin
+  -- The hourly claim only sweeps expired leases for schedules and channels its
+  -- own query still returns, so a row stranded by a since-disabled channel is
+  -- retired here instead. This function locks no schedule rows, so it cannot
+  -- deadlock against a concurrent claim or revalidation.
+  update public.schedule_notification_deliveries
+  set status = 'failed',
+      retryable = false,
+      lease_expires_at = null,
+      last_error_code = 'timeout',
+      last_error = 'Retry budget exhausted after delivery lease expiry'
+  where status = 'claimed'
+    and lease_expires_at <= p_now
+    and attempt_count >= 5;
+
+  -- 'claimed' is included so a row stranded by a crash between claim and
+  -- result recording cannot outlive the retention window.
   delete from public.schedule_notification_deliveries
-  where status in ('delivered', 'failed', 'cancelled')
-    and claimed_at < p_now - interval '90 days';
+  where claimed_at < p_now - interval '90 days';
   get diagnostics removed = row_count;
   return removed;
 end;
@@ -933,7 +988,11 @@ grant insert (
   reminder_time,
   weekly_digest_enabled
 ) on public.notification_settings to authenticated;
+-- household_id is writable so the client's upsert (ON CONFLICT DO UPDATE SET
+-- household_id = excluded.household_id) keeps working; the update policy's
+-- WITH CHECK still confines the row to a household the caller owns.
 grant update (
+  household_id,
   enabled,
   discord_webhook_url,
   telegram_bot_token,

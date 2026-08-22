@@ -61,6 +61,18 @@ describe("scheduleFormSchema", () => {
       scheduleFormSchema.safeParse({ ...base, reminder_lead_days: "366" }).success,
     ).toBe(false);
   });
+
+  it("ignores a retained lead-days value once reminders are switched off", () => {
+    for (const reminder_lead_days of ["366", "", "abc"]) {
+      expect(
+        scheduleFormSchema.safeParse({
+          ...base,
+          reminder_enabled: false,
+          reminder_lead_days,
+        }).success,
+      ).toBe(true);
+    }
+  });
 });
 
 const baseItem = {

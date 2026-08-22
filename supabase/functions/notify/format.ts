@@ -37,29 +37,49 @@ export type ScheduleReminderRow = {
   occurrence_due_on: string;
 };
 
-export function formatScheduleReminders(
-  householdName: string,
-  rows: ScheduleReminderRow[],
-  appUrl?: string,
-): string {
-  const lines = [`${householdName} - Hearth reminders`];
-  const baseUrl = appUrl?.replace(/\/$/, "");
-  for (const row of rows) {
-    const title = row.item_name
-      ? `${row.item_name} - ${row.schedule_name}`
-      : row.schedule_name;
-    lines.push(``, `• ${title} - due ${row.occurrence_due_on}`);
-    if (baseUrl) {
-      lines.push(`${baseUrl}/schedules/${encodeURIComponent(row.schedule_id)}/edit`);
-    }
+/** Discord rejects content over 2000 characters; Telegram caps at 4096. */
+export const MAX_MESSAGE_CHARS = 1900;
+
+function reminderLines(row: ScheduleReminderRow, baseUrl?: string): string[] {
+  const title = row.item_name
+    ? `${row.item_name} - ${row.schedule_name}`
+    : row.schedule_name;
+  const lines = [``, `• ${title} - due ${row.occurrence_due_on}`];
+  if (baseUrl) {
+    lines.push(`${baseUrl}/schedules/${encodeURIComponent(row.schedule_id)}/edit`);
   }
-  return lines.join("\n");
+  return lines;
 }
 
-export function discordBody(text: string): string {
-  return JSON.stringify({ content: text });
-}
+/**
+ * Splits a household's reminders into provider-sized messages, each carrying
+ * the rows it covers so the caller can record delivery per message. A single
+ * row that exceeds the cap still gets its own message rather than being
+ * dropped.
+ */
+export function formatScheduleReminderMessages<T extends ScheduleReminderRow>(
+  householdName: string,
+  rows: T[],
+  appUrl?: string,
+  maxChars = MAX_MESSAGE_CHARS,
+): { text: string; rows: T[] }[] {
+  const header = `${householdName} - Hearth reminders`;
+  const baseUrl = appUrl?.replace(/\/$/, "");
+  const messages: { text: string; rows: T[] }[] = [];
+  let lines = [header];
+  let batch: T[] = [];
 
-export function telegramBody(chatId: string, text: string): string {
-  return JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true });
+  for (const row of rows) {
+    const next = reminderLines(row, baseUrl);
+    const length = [...lines, ...next].join("\n").length;
+    if (length > maxChars && batch.length > 0) {
+      messages.push({ text: lines.join("\n"), rows: batch });
+      lines = [header];
+      batch = [];
+    }
+    lines.push(...next);
+    batch.push(row);
+  }
+  if (batch.length > 0) messages.push({ text: lines.join("\n"), rows: batch });
+  return messages;
 }

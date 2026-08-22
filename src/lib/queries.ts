@@ -406,18 +406,18 @@ export function useSnoozeSchedule() {
   return useMutation({
     mutationFn: async ({
       schedule,
-      snoozed_until,
+      snooze_days,
     }: {
       schedule: MaintenanceSchedule;
-      snoozed_until: string | null;
+      snooze_days: number | null;
     }) => {
       if (demo) {
-        demoDb.snoozeSchedule(schedule.id, snoozed_until);
+        demoDb.snoozeSchedule(schedule.id, snooze_days);
         return schedule;
       }
       const { error } = await supabase.rpc("snooze_schedule", {
         schedule_id: schedule.id,
-        snoozed_until,
+        snooze_days,
       });
       if (error) throw error;
       return schedule;

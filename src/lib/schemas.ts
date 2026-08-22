@@ -110,9 +110,7 @@ export const scheduleFormSchema = z
     anchor_month: z.number().int().min(1).max(12).nullable(),
     next_due: optionalDate,
     reminder_enabled: z.boolean(),
-    reminder_lead_days: z
-      .string()
-      .regex(/^\d{1,3}$/, "Days, e.g. 7"),
+    reminder_lead_days: z.string(),
     reminder_frequency: z.enum(["hourly", "daily", "weekly"]),
     notes: z.string().trim().max(2000).optional().or(z.literal("")),
   })
@@ -133,13 +131,20 @@ export const scheduleFormSchema = z
         message: "Pick a month",
       });
     }
-    const reminderDays = Number(values.reminder_lead_days);
-    if (reminderDays < 0 || reminderDays > 365) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["reminder_lead_days"],
-        message: "Between 0 and 365 days",
-      });
+    // Only checked while the field is on screen: the value is retained when
+    // reminders are switched off, and an invisible error would block submit.
+    if (values.reminder_enabled) {
+      const reminderDays = Number(values.reminder_lead_days);
+      if (
+        !/^\d{1,3}$/.test(values.reminder_lead_days) ||
+        reminderDays > 365
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["reminder_lead_days"],
+          message: "Between 0 and 365 days",
+        });
+      }
     }
   });
 
