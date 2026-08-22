@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { isValidTimeZone } from "@/lib/timeZones";
+
 // Shared between forms and any future tooling (ADR-001 §2.1).
 
 const isoDate = z
@@ -107,6 +109,11 @@ export const scheduleFormSchema = z
       .or(z.literal("")),
     anchor_month: z.number().int().min(1).max(12).nullable(),
     next_due: optionalDate,
+    reminder_enabled: z.boolean(),
+    reminder_lead_days: z
+      .string()
+      .regex(/^\d{1,3}$/, "Days, e.g. 7"),
+    reminder_frequency: z.enum(["hourly", "daily", "weekly"]),
     notes: z.string().trim().max(2000).optional().or(z.literal("")),
   })
   .superRefine((values, ctx) => {
@@ -124,6 +131,14 @@ export const scheduleFormSchema = z
         code: "custom",
         path: ["anchor_month"],
         message: "Pick a month",
+      });
+    }
+    const reminderDays = Number(values.reminder_lead_days);
+    if (reminderDays < 0 || reminderDays > 365) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["reminder_lead_days"],
+        message: "Between 0 and 365 days",
       });
     }
   });
@@ -148,6 +163,15 @@ export const notificationSettingsFormSchema = z
       .regex(/^\d{1,3}$/, "Days, e.g. 14")
       .optional()
       .or(z.literal("")),
+    time_zone: z
+      .string()
+      .trim()
+      .min(1, "Time zone is required")
+      .refine(isValidTimeZone, "Choose a valid IANA time zone"),
+    reminder_time: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM"),
+    weekly_digest_enabled: z.boolean(),
   })
   .superRefine((v, ctx) => {
     const days = Number(v.lead_time_days);

@@ -19,10 +19,12 @@ Architecture is documented in
   system with a manual override.
 - Hosted from a **GCS bucket** behind **Cloudflare**, deployed by GitHub
   Actions.
-- **Notifications** are a weekly maintenance digest, sent by a pg_cron-scheduled
-  Supabase Edge Function ([`supabase/functions/notify`](supabase/functions/notify))
-  to Discord/Telegram, configured per-household in Settings. Secrets and cron
-  setup are in [SETUP.md](docs/SETUP.md).
+- **Notifications** combine per-schedule lead times, hourly/daily/weekly
+  reminders, and server-authoritative snoozing with a weekly warranty and
+  end-of-life digest. A pg_cron-scheduled Supabase Edge Function
+  ([`supabase/functions/notify`](supabase/functions/notify)) sends to household
+  Discord/Telegram channels. Secrets and cron setup are in
+  [SETUP.md](docs/SETUP.md).
 - **Find & filter** (v1.4): fuzzy search across name, brand, model, serial,
   location, and notes; filter by category, location, and lifespan age band; on
   laptop, a sortable table view and one-click CSV export of what you're
@@ -79,4 +81,3 @@ Cloudflare cache. Required secrets are listed at the top of the workflow.
 
 The bucket/Cloudflare need a SPA fallback (404 → `/index.html`) so
 client-side routes like `/items/<id>` resolve on refresh.
-

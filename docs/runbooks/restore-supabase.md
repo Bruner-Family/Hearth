@@ -35,6 +35,19 @@ cd restore && gunzip -k ./*.gz
 The restore target must be a managed Supabase project (the `auth`/`storage`
 schemas must already exist — Hearth's `public` tables FK-reference `auth.users`).
 
+Before either restore path, disable notification delivery so restored claims
+cannot send while occurrence state is incomplete:
+
+```sql
+select cron.unschedule(jobid)
+from cron.job
+where jobname in (
+  'weekly-notifications',
+  'schedule-reminders',
+  'schedule-notification-delivery-cleanup'
+);
+```
+
 **Reload is destructive and replaces current data.** `data.sql` is a data-only
 dump that includes the migration-seeded `public.item_categories`, so the target
 tables must be truncated first or the reload collides with the seeded rows. This
@@ -58,7 +71,8 @@ mirrors the verified round-trip (`scripts/backup/verify-restore.sh`).
   ```bash
   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
   set session_replication_role = replica;
-  truncate table public.attachments, public.maintenance_logs,
+  truncate table public.schedule_notification_deliveries,
+    public.attachments, public.maintenance_logs,
     public.maintenance_schedules, public.notification_settings,
     public.household_invites, public.household_members,
     public.items, public.households, public.item_categories cascade;
@@ -88,8 +102,24 @@ AWS_DEFAULT_REGION=$SUPABASE_S3_REGION \
 ```bash
 psql "$SUPABASE_DB_URL" -tAc "select count(*) from auth.users;"
 psql "$SUPABASE_DB_URL" -tAc "select count(*) from public.items;"
+psql "$SUPABASE_DB_URL" -tAc "select count(*) from public.schedule_notification_deliveries;"
 ```
 Then sign in and open an item with an attachment to confirm files resolve.
+
+Before re-enabling notifications, verify that each restored outstanding claim
+still matches its schedule occurrence and that no unexpected backlog exists:
+
+```sql
+select d.status, count(*)
+from public.schedule_notification_deliveries d
+join public.maintenance_schedules s on s.id = d.schedule_id
+where d.occurrence_due_on = s.next_due
+group by d.status;
+```
+
+After verification, run `supabase/cron/weekly-notifications.sql` in the SQL
+editor to restore the weekly digest, hourly schedule worker, and daily cleanup
+jobs.
 
 > This procedure is exercised on every PR by `scripts/backup/verify-restore.sh`
 > (the `restore-roundtrip` CI job), which proves `data.sql` reloads `public` +

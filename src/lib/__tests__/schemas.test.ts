@@ -8,6 +8,9 @@ const base = {
   interval_months: "3",
   anchor_month: null,
   next_due: "2026-07-01",
+  reminder_enabled: true,
+  reminder_lead_days: "14",
+  reminder_frequency: "weekly" as const,
   notes: "",
 };
 
@@ -48,6 +51,15 @@ describe("scheduleFormSchema", () => {
 
   it("requires a name", () => {
     expect(scheduleFormSchema.safeParse({ ...base, name: " " }).success).toBe(false);
+  });
+
+  it("accepts zero reminder lead days and rejects more than 365", () => {
+    expect(
+      scheduleFormSchema.safeParse({ ...base, reminder_lead_days: "0" }).success,
+    ).toBe(true);
+    expect(
+      scheduleFormSchema.safeParse({ ...base, reminder_lead_days: "366" }).success,
+    ).toBe(false);
   });
 });
 

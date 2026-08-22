@@ -4,6 +4,7 @@
 export type Role = "owner" | "member";
 export type InviteStatus = "pending" | "accepted" | "revoked";
 export type PurchaseDatePrecision = "day" | "month";
+export type ReminderFrequency = "hourly" | "daily" | "weekly";
 
 export type Household = {
   id: string;
@@ -77,6 +78,10 @@ export type MaintenanceSchedule = {
   anchor_month: number | null;
   next_due: string;
   last_completed_on: string | null;
+  reminder_enabled: boolean;
+  reminder_lead_days: number;
+  reminder_frequency: ReminderFrequency;
+  snoozed_until: string | null;
   notes: string | null;
   created_by: string;
   created_at: string;
@@ -90,6 +95,11 @@ export type NotificationSettings = {
   telegram_bot_token: string | null;
   telegram_chat_id: string | null;
   lead_time_days: number;
+  time_zone: string;
+  reminder_time: string;
+  weekly_digest_enabled: boolean;
+  discord_error: string | null;
+  telegram_error: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -146,12 +156,12 @@ export type Database = {
       maintenance_schedules: TableOf<
         MaintenanceSchedule,
         "household_id" | "name" | "next_due",
-        "id" | "created_at" | "updated_at"
+        "id" | "created_at" | "updated_at" | "snoozed_until"
       >;
       notification_settings: TableOf<
         NotificationSettings,
         "household_id",
-        "created_at" | "updated_at"
+        "created_at" | "updated_at" | "discord_error" | "telegram_error"
       >;
       attachments: TableOf<
         Attachment,
@@ -178,6 +188,13 @@ export type Database = {
           cost_cents?: number | null;
           performed_by?: string | null;
           notes?: string | null;
+        };
+        Returns: undefined;
+      };
+      snooze_schedule: {
+        Args: {
+          schedule_id: string;
+          snoozed_until: string | null;
         };
         Returns: undefined;
       };

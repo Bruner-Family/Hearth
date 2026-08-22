@@ -130,15 +130,17 @@ supabase db start
 supabase test db
 ```
 
-## 8. Notifications (v1.3)
+## 8. Notifications
 
-Weekly maintenance digest, delivered by the `notify` Edge Function on a
-pg_cron schedule. Background: [ADR-003](adrs/ADR-003-notifications.md).
+Per-schedule reminders plus a weekly warranty and end-of-life digest,
+delivered by the `notify` Edge Function. Background:
+[ADR-004](adrs/ADR-004-per-schedule-reminders.md).
 
 1. Set the Edge Function secret:
 
    ```sh
    supabase secrets set CRON_SECRET=$(openssl rand -hex 32)
+   supabase secrets set APP_URL=https://home.bruner.family
    ```
 
    Note the generated value down — it's needed again in step 2 and step 4.
@@ -153,20 +155,23 @@ pg_cron schedule. Background: [ADR-003](adrs/ADR-003-notifications.md).
 
 3. Run [`supabase/cron/weekly-notifications.sql`](../supabase/cron/weekly-notifications.sql)
    once in the SQL editor. This enables `pg_cron`/`pg_net` and schedules the
-   weekly job (Mondays 13:00 UTC).
+   weekly digest (Mondays 13:00 UTC), hourly schedule reminder worker, and
+   daily 90-day delivery-ledger cleanup job.
 
 4. Verify the function responds:
 
    ```sh
    curl -X POST https://<ref>.supabase.co/functions/v1/notify \
-     -H "x-cron-secret: <value>"
+     -H "x-cron-secret: <value>" \
+     -H "Content-Type: application/json" \
+     -d '{"mode":"schedule-reminders"}'
    ```
 
    Expect `{"ok":true,...}`.
 
-5. Per-household config — webhook URLs, Telegram bot token/chat ID, lead
-   time — is entered in the app under **Settings → Notifications** (owner
-   only).
+5. Per-household channels, time zone, reminder time, and weekly digest config
+   are entered under **Settings -> Notifications** (owner only). Each schedule
+   owns its enablement, lead days, and hourly/daily/weekly frequency.
 
 ## 9. Nightly backups (v1.5)
 

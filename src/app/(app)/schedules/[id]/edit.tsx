@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Text,
   View,
 } from "react-native";
 
@@ -15,9 +16,12 @@ import { Button, Loading } from "@/components/ui";
 import { useHousehold } from "@/lib/household";
 import {
   useDeleteSchedule,
+  useNotificationSettings,
   useSchedules,
+  useSnoozeSchedule,
   useUpdateSchedule,
 } from "@/lib/queries";
+import { snoozeAtReminderTime } from "@/lib/reminders";
 import { usePalette } from "@/lib/theme";
 
 export default function EditScheduleScreen() {
@@ -28,11 +32,16 @@ export default function EditScheduleScreen() {
   const { data: schedules = [], isLoading } = useSchedules(
     active?.household.id,
   );
+  const {
+    data: notificationSettings,
+    isLoading: notificationSettingsLoading,
+  } = useNotificationSettings(active?.household.id);
   const updateSchedule = useUpdateSchedule();
   const deleteSchedule = useDeleteSchedule();
+  const snoozeSchedule = useSnoozeSchedule();
 
   const schedule = schedules.find((s) => s.id === id);
-  if (isLoading || !schedule) return <Loading />;
+  if (isLoading || notificationSettingsLoading || !schedule) return <Loading />;
 
   const submit = (values: ScheduleFormOutput) =>
     updateSchedule.mutate(
@@ -60,6 +69,30 @@ export default function EditScheduleScreen() {
     );
   };
 
+  const timeZone = notificationSettings?.time_zone ?? "UTC";
+  const reminderTime = notificationSettings?.reminder_time ?? "09:00";
+  const now = new Date();
+  const setSnooze = (days: number) =>
+    snoozeSchedule.mutate({
+      schedule,
+      snoozed_until: snoozeAtReminderTime(
+        new Date(),
+        days,
+        timeZone,
+        reminderTime,
+      ),
+    });
+  const snoozeEnded =
+    schedule.snoozed_until != null &&
+    Date.parse(schedule.snoozed_until) <= now.getTime();
+  const snoozeLabel = schedule.snoozed_until
+    ? new Intl.DateTimeFormat(undefined, {
+        timeZone,
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(schedule.snoozed_until))
+    : null;
+
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-bg"
@@ -86,6 +119,57 @@ export default function EditScheduleScreen() {
           pending={updateSchedule.isPending}
           error={updateSchedule.error?.message}
         />
+        <View className="mt-8 border-t border-edge pt-5">
+          <Text className="mb-1 text-base font-semibold text-ink">
+            Reminder actions
+          </Text>
+          <Text className="mb-3 text-xs text-ink-dim">
+            {snoozeLabel
+              ? snoozeEnded
+                ? `Snooze ended ${snoozeLabel}. Reminders are active.`
+                : `Snoozed until ${snoozeLabel}.`
+              : `Uses ${timeZone} at ${reminderTime.slice(0, 5)}.`}
+          </Text>
+          <View className="mb-3 flex-row gap-2">
+            <View className="flex-1">
+              <Button
+                title="Tomorrow"
+                variant="secondary"
+                loading={snoozeSchedule.isPending}
+                onPress={() => setSnooze(1)}
+              />
+            </View>
+            <View className="flex-1">
+              <Button
+                title="1 week"
+                variant="secondary"
+                loading={snoozeSchedule.isPending}
+                onPress={() => setSnooze(7)}
+              />
+            </View>
+          </View>
+          {schedule.snoozed_until ? (
+            <View className="mb-3">
+              <Button
+                title="Clear snooze"
+                variant="secondary"
+                loading={snoozeSchedule.isPending}
+                onPress={() =>
+                  snoozeSchedule.mutate({ schedule, snoozed_until: null })
+                }
+              />
+            </View>
+          ) : null}
+          <Button
+            title="Mark done"
+            onPress={() => router.push(`/schedules/${schedule.id}/complete`)}
+          />
+          {snoozeSchedule.error ? (
+            <Text className="mt-2 text-xs text-danger">
+              {snoozeSchedule.error.message}
+            </Text>
+          ) : null}
+        </View>
         <View className="mt-10">
           <Button
             title="Delete schedule"

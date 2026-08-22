@@ -2,7 +2,7 @@
 
 |            |                                                   |
 |------------|---------------------------------------------------|
-|**Status**  |Proposed                                           |
+|**Status**  |Accepted                                           |
 |**Date**    |2026-08-17                                         |
 |**Deciders**|Colin                                              |
 |**Relates** |[ADR-003](ADR-003-notifications.md), [iOS readiness P2](../IOS-READINESS-TODO.md#p2-mobile-first-product-enhancements)|

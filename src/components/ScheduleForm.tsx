@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Switch, Text, View } from "react-native";
 
 import { DateField } from "@/components/DateField";
 import { Button, ErrorNote, Field } from "@/components/ui";
@@ -15,7 +15,14 @@ type ScheduleInsert =
 /** What the form hands back — household/item scoping is the caller's job. */
 export type ScheduleFormOutput = Pick<
   ScheduleInsert,
-  "name" | "interval_months" | "anchor_month" | "next_due" | "notes"
+  | "name"
+  | "interval_months"
+  | "anchor_month"
+  | "next_due"
+  | "reminder_enabled"
+  | "reminder_lead_days"
+  | "reminder_frequency"
+  | "notes"
 >;
 
 const empty = (v: string | undefined) =>
@@ -27,12 +34,14 @@ export function ScheduleForm({
   onSubmit,
   pending,
   error,
+  defaultReminderLeadDays = 14,
 }: {
   initial?: MaintenanceSchedule;
   submitLabel: string;
   onSubmit: (values: ScheduleFormOutput) => void;
   pending: boolean;
   error?: string;
+  defaultReminderLeadDays?: number;
 }) {
   const {
     control,
@@ -47,11 +56,21 @@ export function ScheduleForm({
         initial?.interval_months != null ? String(initial.interval_months) : "",
       anchor_month: initial?.anchor_month ?? null,
       next_due: initial?.next_due ?? todayISO(),
+      reminder_enabled: initial?.reminder_enabled ?? true,
+      reminder_lead_days: String(
+        initial?.reminder_lead_days ?? defaultReminderLeadDays,
+      ),
+      reminder_frequency: initial?.reminder_frequency ?? "weekly",
       notes: initial?.notes ?? "",
     },
   });
 
   const cadence = useWatch({ control, name: "cadence" });
+  const reminderEnabled = useWatch({ control, name: "reminder_enabled" });
+  const reminderFrequency = useWatch({
+    control,
+    name: "reminder_frequency",
+  });
 
   const submit = handleSubmit((values) => {
     const anchor = values.cadence === "anchor" ? values.anchor_month : null;
@@ -67,6 +86,9 @@ export function ScheduleForm({
         values.cadence === "interval" ? Number(values.interval_months) : null,
       anchor_month: anchor,
       next_due,
+      reminder_enabled: values.reminder_enabled,
+      reminder_lead_days: Number(values.reminder_lead_days),
+      reminder_frequency: values.reminder_frequency,
       notes: empty(values.notes),
     });
   });
@@ -209,6 +231,95 @@ export function ScheduleForm({
           )}
         />
       )}
+
+      <View className="mb-4 border-t border-edge pt-4">
+        <Controller
+          control={control}
+          name="reminder_enabled"
+          render={({ field: { onChange, value } }) => (
+            <View className="mb-4 flex-row items-center justify-between">
+              <View className="flex-1 pr-4">
+                <Text className="text-sm font-medium text-ink">Reminders</Text>
+                <Text className="text-xs text-ink-dim">
+                  Send this task to the household channels.
+                </Text>
+              </View>
+              <Switch value={value} onValueChange={onChange} />
+            </View>
+          )}
+        />
+
+        {reminderEnabled ? (
+          <>
+            <View className="w-44">
+              <Controller
+                control={control}
+                name="reminder_lead_days"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Field
+                    label="Start before due date"
+                    inputMode="numeric"
+                    maxLength={3}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    error={errors.reminder_lead_days?.message}
+                    hint="Days before, 0 for due day"
+                  />
+                )}
+              />
+            </View>
+
+            <Controller
+              control={control}
+              name="reminder_frequency"
+              render={({ field: { onChange, value } }) => (
+                <View className="mb-2">
+                  <Text className="mb-1.5 text-sm font-medium text-ink">
+                    Repeat
+                  </Text>
+                  <View className="flex-row gap-2">
+                    {(["hourly", "daily", "weekly"] as const).map(
+                      (frequency) => {
+                        const selected = value === frequency;
+                        return (
+                          <Pressable
+                            key={frequency}
+                            accessibilityRole="button"
+                            className={`flex-1 items-center rounded-xl border px-3 py-3 active:opacity-70 ${
+                              selected
+                                ? "border-accent bg-accent"
+                                : "border-edge bg-card"
+                            }`}
+                            onPress={() => onChange(frequency)}
+                          >
+                            <Text
+                              className={
+                                selected
+                                  ? "text-sm font-semibold capitalize text-on-accent"
+                                  : "text-sm capitalize text-ink"
+                              }
+                            >
+                              {frequency}
+                            </Text>
+                          </Pressable>
+                        );
+                      },
+                    )}
+                  </View>
+                </View>
+              )}
+            />
+
+            {reminderFrequency === "hourly" ? (
+              <Text className="mb-2 text-xs text-warn">
+                Hourly repeats every hour, including overnight, until the task
+                is snoozed, completed, or disabled.
+              </Text>
+            ) : null}
+          </>
+        ) : null}
+      </View>
 
       <Controller
         control={control}

@@ -7,7 +7,11 @@ import {
 } from "@/components/ScheduleForm";
 import { Loading } from "@/components/ui";
 import { useHousehold } from "@/lib/household";
-import { useCreateSchedule, useItem } from "@/lib/queries";
+import {
+  useCreateSchedule,
+  useItem,
+  useNotificationSettings,
+} from "@/lib/queries";
 import { usePalette } from "@/lib/theme";
 
 export default function NewScheduleScreen() {
@@ -16,9 +20,13 @@ export default function NewScheduleScreen() {
   const palette = usePalette();
   const { active, isLoading } = useHousehold();
   const { data: item } = useItem(itemId);
+  const {
+    data: notificationSettings,
+    isLoading: notificationSettingsLoading,
+  } = useNotificationSettings(active?.household.id);
   const createSchedule = useCreateSchedule();
 
-  if (isLoading || !active) return <Loading />;
+  if (isLoading || !active || notificationSettingsLoading) return <Loading />;
 
   const submit = (values: ScheduleFormOutput) =>
     createSchedule.mutate(
@@ -60,6 +68,9 @@ export default function NewScheduleScreen() {
           onSubmit={submit}
           pending={createSchedule.isPending}
           error={createSchedule.error?.message}
+          defaultReminderLeadDays={
+            notificationSettings?.lead_time_days ?? 14
+          }
         />
       </ScrollView>
     </KeyboardAvoidingView>
